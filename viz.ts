@@ -72,7 +72,7 @@ export function sortBy<T>(arr: T[], by: (t: T) => any = identity): T[] {
   return copy;
 }
 
-const counts: Record<string, number> = {};
+const counts: Record<string, Record<string, number>> = {};
 
 // Create a dataset of days and counts. To start, all I care about is how
 // many items are open on a given day, i.e., is that date between created and
@@ -83,21 +83,20 @@ for (const item of items) {
   // if it is incomplete it is open for all days up to today
   const end = dateToStr(item.stop_date || new Date());
   getDays(start, end).forEach((date) => {
-    if (!(date in counts)) counts[date] = 0;
-    counts[date] += 1;
+    const value = counts[date] || { total: 0 };
+    value.total += 1;
+    if (item.area_title) {
+      value[item.area_title] = (value[item.area_title] || 0) + 1;
+    }
+    counts[date] = value;
   });
 }
 
 // turn into a list of data point objects, sorted by date
 const output = sortBy(
-  Object.entries(counts).map(([date, count]) => ({ date, count })),
+  Object.entries(counts).map(([date, value]) => ({ date, ...value })),
   (d) => d.date,
 );
 
 await Deno.writeTextFile("output.json", JSON.stringify(output, null, "  "));
-
-console.log("Done");
-// console.log(
-//   items.filter((item) => !item.stop_date).map((i) => [i.title, i.created]),
-// );
-console.log(output.slice(-10));
+console.log(output.slice(-3));
