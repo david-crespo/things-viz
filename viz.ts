@@ -1,6 +1,7 @@
-#!/usr/bin/env deno run --allow-read
+#!/usr/bin/env deno run --allow-read --allow-write
 
 import { minBy, maxBy } from "https://deno.land/std@0.209.0/collections/mod.ts";
+import dayjs from "npm:dayjs@1.11.10";
 
 type RawGroup = {
   title: string;
@@ -36,11 +37,6 @@ type Item = ItemBase & {
 // things-cli -j all > data.json
 const data = JSON.parse(await Deno.readTextFile("./data.json")) as RawGroup[];
 
-// might not need this
-// const areas = Object.fromEntries(
-//   data.find((d) => d.title === "Areas")!.items.map((i) => [i.uuid, i.title]),
-// );
-
 const items: Item[] = data
   .flatMap((x) => {
     if (["No Area", "Areas"].includes(x.title)) return [];
@@ -52,22 +48,19 @@ const items: Item[] = data
     stop_date: i.stop_date ? new Date(i.stop_date) : null,
   }));
 
-function incrDay(d: Date) {
-  const newDate = new Date(d.valueOf());
-  newDate.setDate(newDate.getDate() + 1);
-  return newDate;
+const dateToStr = (d: Date) => d.toISOString().slice(0, 10);
+
+function incrDay(d: string) {
+  return dayjs(d).add(1, "days").format("YYYY-MM-DD");
 }
 
-function getDays(start: Date, end: Date) {
-  const days: Date[] = [];
+function getDays(start: string, end: string) {
+  const days: string[] = [];
   for (let date = start; date <= end; date = incrDay(date)) {
     days.push(date);
   }
   return days;
 }
-
-const dateToStr = (d: Date) => d.toISOString().slice(0, 10);
-const truncateDate = (d: Date) => new Date(dateToStr(d));
 
 const identity = (x: any) => x;
 
@@ -86,15 +79,12 @@ const counts: Record<string, number> = {};
 // stop_date, inclusive. If an item is completed on a given day, we should
 // consider it open on that day and closed on the next
 for (const item of items) {
-  const start = truncateDate(item.created);
+  const start = dateToStr(item.created);
   // if it is incomplete it is open for all days up to today
-  const end = truncateDate(item.stop_date || new Date());
-  getDays(start, end).forEach((d) => {
-    const dateStr = dateToStr(d);
-    if (!(dateStr in counts)) {
-      counts[dateStr] = 0;
-    }
-    counts[dateStr] += 1;
+  const end = dateToStr(item.stop_date || new Date());
+  getDays(start, end).forEach((date) => {
+    if (!(date in counts)) counts[date] = 0;
+    counts[date] += 1;
   });
 }
 
@@ -104,4 +94,10 @@ const output = sortBy(
   (d) => d.date,
 );
 
-console.log(output);
+await Deno.writeTextFile("output.json", JSON.stringify(output, null, "  "));
+
+console.log("Done");
+// console.log(
+//   items.filter((item) => !item.stop_date).map((i) => [i.title, i.created]),
+// );
+console.log(output.slice(-10));
