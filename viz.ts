@@ -3,6 +3,16 @@
 import { minBy, maxBy } from "https://deno.land/std@0.209.0/collections/mod.ts";
 import dayjs from "npm:dayjs@1.11.10";
 
+const identity = (x: any) => x;
+
+/** Returns a new array sorted by `by`. Assumes return value of `by` is
+ * comparable. Default value of `by` is the identity function. */
+export function sortBy<T>(arr: T[], by: (t: T) => any = identity): T[] {
+  const copy = [...arr];
+  copy.sort((a, b) => (by(a) < by(b) ? -1 : by(a) > by(b) ? 1 : 0));
+  return copy;
+}
+
 type RawGroup = {
   title: string;
   items: RawItem[];
@@ -17,13 +27,6 @@ type ItemBase = {
   area_title?: string;
   project?: string;
   project_title?: string;
-  // notes: "",
-  // start: "Anytime",
-  // start_date: null,
-  // deadline: null,
-  // stop_date: null,
-  // index: -262068,
-  // today_index: 0
 };
 
 type RawItem = ItemBase & {
@@ -47,14 +50,15 @@ const projectAreas = Object.fromEntries(
     .items.filter((i) => i.type === "project")
     .map((p) => [p.title, p.area_title]),
 );
-// console.log(data[6]);
-// Deno.exit();
 
 const items: Item[] = data
-  .flatMap((x) => {
-    if (["No Area", "Areas"].includes(x.title)) return [];
-    return x.items.filter((i) => i.type === "to-do");
-  })
+  .filter((i) =>
+    // No Area is projects
+    // Areas is areas
+    // Today is redundant -- items appear elsewhere
+    ["Upcoming", "Anytime", "Someday", "Logbook"].includes(i.title),
+  )
+  .flatMap((x) => x.items.filter((i) => i.type === "to-do"))
   .map((i) => ({
     ...i,
     created: new Date(i.created),
@@ -74,18 +78,6 @@ function getDays(start: string, end: string) {
   }
   return days;
 }
-
-const identity = (x: any) => x;
-
-/** Returns a new array sorted by `by`. Assumes return value of `by` is
- * comparable. Default value of `by` is the identity function. */
-export function sortBy<T>(arr: T[], by: (t: T) => any = identity): T[] {
-  const copy = [...arr];
-  copy.sort((a, b) => (by(a) < by(b) ? -1 : by(a) > by(b) ? 1 : 0));
-  return copy;
-}
-
-// console.log(items.filter((i) => i.title.includes("VPC delete confirm")));
 
 const counts: Record<string, Record<string, number>> = {};
 
@@ -119,7 +111,5 @@ const output = sortBy(
   (d) => d.date,
 );
 
-// await Deno.writeTextFile("output.json", JSON.stringify(output, null, "  "));
+await Deno.writeTextFile("output.json", JSON.stringify(output, null, "  "));
 console.table(output.slice(-10));
-
-// TODO: investigate double "VPC delete confirm" item
