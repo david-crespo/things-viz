@@ -103,30 +103,39 @@ for (const item of items) {
   // if it is incomplete it is open for all days up to today. but
   // actually go up to tomorrow to see items completed today
   const end = item.stop_date ? dateToStr(item.stop_date) : tomorrow;
+  const area =
+    item.area_title ||
+    (item.project_title ? projectAreas[item.project_title] : undefined);
+
   getDays(start, end).forEach((date) => {
-    const value = counts[date] || { total: 0 };
-    value.total += 1;
+    const value = counts[date] || { "No area": 0 };
 
     // items in projects do not have the area directly on them. need to
     // look up the area for the project
-    const area =
-      item.area_title ||
-      (item.project_title ? projectAreas[item.project_title] : undefined);
     if (area) {
       value[area] = (value[area] || 0) + 1;
+    } else {
+      value["No area"] += 1;
     }
     counts[date] = value;
   });
 }
 
-// turn into a list of data point objects, sorted by date
+// output for observable plot
 const output = sortBy(
-  Object.entries(counts).map(([date, value]) => ({ date, ...value })),
+  Object.entries(counts).flatMap(([date, value]) =>
+    Object.entries(value).map(([area, count]) => ({ date, area, count })),
+  ),
   (d) => d.date,
 );
 
 await Deno.writeTextFile("output.json", JSON.stringify(output, null, "  "));
-console.table(output.slice(-10));
+
+const outputTable = sortBy(
+  Object.entries(counts).map(([date, value]) => ({ date, ...value })),
+  (d) => d.date,
+);
+console.table(outputTable.slice(-10));
+// console.log(output.slice(-10));
 
 // TODO: get items under headings
-// TODO: change output format to { date, area, count }
