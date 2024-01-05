@@ -12,9 +12,11 @@ type ItemBase = {
   uuid: string;
   type: "to-do" | "project" | "heading";
   title: string;
-  status: "incomplete";
-  area: string;
-  area_title: string;
+  status: "incomplete" | "completed";
+  area?: string;
+  area_title?: string;
+  project?: string;
+  project_title?: string;
   // notes: "",
   // start: "Anytime",
   // start_date: null,
@@ -36,6 +38,17 @@ type Item = ItemBase & {
 
 // things-cli -j all > data.json
 const data = JSON.parse(await Deno.readTextFile("./data.json")) as RawGroup[];
+
+// console.log(data.map(({ title, items }) => ({ title, l: items.length })));
+
+const projectAreas = Object.fromEntries(
+  data
+    .find((i) => i.title === "No Area")!
+    .items.filter((i) => i.type === "project")
+    .map((p) => [p.title, p.area_title]),
+);
+// console.log(data[6]);
+// Deno.exit();
 
 const items: Item[] = data
   .flatMap((x) => {
@@ -72,6 +85,8 @@ export function sortBy<T>(arr: T[], by: (t: T) => any = identity): T[] {
   return copy;
 }
 
+// console.log(items.filter((i) => i.title.includes("VPC delete confirm")));
+
 const counts: Record<string, Record<string, number>> = {};
 
 // Create a dataset of days and counts. To start, all I care about is how
@@ -85,8 +100,14 @@ for (const item of items) {
   getDays(start, end).forEach((date) => {
     const value = counts[date] || { total: 0 };
     value.total += 1;
-    if (item.area_title) {
-      value[item.area_title] = (value[item.area_title] || 0) + 1;
+
+    // items in projects do not have the area directly on them. need to
+    // look up the area for the project
+    const area =
+      item.area_title ||
+      (item.project_title ? projectAreas[item.project_title] : undefined);
+    if (area) {
+      value[area] = (value[area] || 0) + 1;
     }
     counts[date] = value;
   });
@@ -98,5 +119,7 @@ const output = sortBy(
   (d) => d.date,
 );
 
-await Deno.writeTextFile("output.json", JSON.stringify(output, null, "  "));
-console.log(output.slice(-3));
+// await Deno.writeTextFile("output.json", JSON.stringify(output, null, "  "));
+console.table(output.slice(-10));
+
+// TODO: investigate double "VPC delete confirm" item
