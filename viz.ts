@@ -51,6 +51,13 @@ const projectAreas = Object.fromEntries(
     .map((p) => [p.title, p.area_title]),
 );
 
+// console.log(data.find((i) => i.title === "Areas")!.items);
+
+const headingAreas = {};
+
+// TODO: do the same with heading areas. unclear whether this is possible, don't
+// see how to get heading -> area association
+
 const items: Item[] = data
   .filter((i) =>
     // No Area is projects
@@ -65,9 +72,13 @@ const items: Item[] = data
     stop_date: i.stop_date ? new Date(i.stop_date) : null,
   }));
 
+// console.log(
+//   items.filter((i) => !i.area && !i.project && i.status === "incomplete"),
+// );
+
 const dateToStr = (d: Date) => d.toISOString().slice(0, 10);
 
-function incrDay(d: string) {
+function incrDay(d: string): string {
   return dayjs(d).add(1, "days").format("YYYY-MM-DD");
 }
 
@@ -79,6 +90,8 @@ function getDays(start: string, end: string) {
   return days;
 }
 
+const tomorrow = incrDay(dateToStr(new Date()));
+
 const counts: Record<string, Record<string, number>> = {};
 
 // Create a dataset of days and counts. To start, all I care about is how
@@ -87,8 +100,9 @@ const counts: Record<string, Record<string, number>> = {};
 // consider it open on that day and closed on the next
 for (const item of items) {
   const start = dateToStr(item.created);
-  // if it is incomplete it is open for all days up to today
-  const end = dateToStr(item.stop_date || new Date());
+  // if it is incomplete it is open for all days up to today. but
+  // actually go up to tomorrow to see items completed today
+  const end = item.stop_date ? dateToStr(item.stop_date) : tomorrow;
   getDays(start, end).forEach((date) => {
     const value = counts[date] || { total: 0 };
     value.total += 1;
@@ -113,3 +127,6 @@ const output = sortBy(
 
 await Deno.writeTextFile("output.json", JSON.stringify(output, null, "  "));
 console.table(output.slice(-10));
+
+// TODO: get items under headings
+// TODO: change output format to { date, area, count }
