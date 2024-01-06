@@ -82,14 +82,6 @@ function incrDay(d: string): string {
   return dayjs(d).add(1, "days").format("YYYY-MM-DD");
 }
 
-function getDays(start: string, end: string) {
-  const days: string[] = [];
-  for (let date = start; date <= end; date = incrDay(date)) {
-    days.push(date);
-  }
-  return days;
-}
-
 const tomorrow = incrDay(dateToStr(new Date()));
 
 const counts: Record<string, Record<string, number>> = {};
@@ -107,7 +99,7 @@ for (const item of items) {
     item.area_title ||
     (item.project_title ? projectAreas[item.project_title] : undefined);
 
-  getDays(start, end).forEach((date) => {
+  for (let date = start; date <= end; date = incrDay(date)) {
     const value = counts[date] || { "No area": 0 };
 
     // items in projects do not have the area directly on them. need to
@@ -118,7 +110,7 @@ for (const item of items) {
       value["No area"] += 1;
     }
     counts[date] = value;
-  });
+  }
 }
 
 // output for observable plot
@@ -128,7 +120,6 @@ const output = sortBy(
   ),
   (d) => d.date,
 );
-
 await Deno.writeTextFile("output.json", JSON.stringify(output, null, "  "));
 
 const outputTable = sortBy(
