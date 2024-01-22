@@ -1,6 +1,6 @@
 #!/usr/bin/env deno run --allow-read --allow-write
 
-import { minBy, maxBy } from "https://deno.land/std@0.209.0/collections/mod.ts";
+import { maxBy, minBy } from "https://deno.land/std@0.209.0/collections/mod.ts";
 import dayjs from "npm:dayjs@1.11.10";
 
 const identity = (x: any) => x;
@@ -39,8 +39,12 @@ type Item = ItemBase & {
   stop_date: Date | null;
 };
 
+const root = "/Users/david/repos/things-viz";
+
 // things-cli -j all > data.json
-const data = JSON.parse(await Deno.readTextFile("./data.json")) as RawGroup[];
+const data = JSON.parse(
+  await Deno.readTextFile(root + "/data.json"),
+) as RawGroup[];
 
 // console.log(data.map(({ title, items }) => ({ title, l: items.length })));
 
@@ -63,7 +67,7 @@ const items: Item[] = data
     // No Area is projects
     // Areas is areas
     // Today is redundant -- items appear elsewhere
-    ["Upcoming", "Anytime", "Someday", "Logbook"].includes(i.title),
+    ["Upcoming", "Anytime", "Someday", "Logbook"].includes(i.title)
   )
   .flatMap((x) => x.items.filter((i) => i.type === "to-do"))
   .map((i) => ({
@@ -95,8 +99,7 @@ for (const item of items) {
   // if it is incomplete it is open for all days up to today. but
   // actually go up to tomorrow to see items completed today
   const end = item.stop_date ? dateToStr(item.stop_date) : tomorrow;
-  const area =
-    item.area_title ||
+  const area = item.area_title ||
     (item.project_title ? projectAreas[item.project_title] : undefined);
 
   for (let date = start; date <= end; date = incrDay(date)) {
@@ -116,17 +119,23 @@ for (const item of items) {
 // output for observable plot
 const output = sortBy(
   Object.entries(counts).flatMap(([date, value]) =>
-    Object.entries(value).map(([area, count]) => ({ date, area, count })),
+    Object.entries(value).map(([area, count]) => ({ date, area, count }))
   ),
   (d) => d.date,
 );
-await Deno.writeTextFile("output.json", JSON.stringify(output, null, "  "));
+await Deno.writeTextFile(
+  root + "/output.json",
+  JSON.stringify(output, null, "  "),
+);
 
 const outputTable = sortBy(
-  Object.entries(counts).map(([date, value]) => ({ date, ...value })),
+  Object.entries(counts).map(([date, value]) => ({
+    date,
+    ...value,
+    Total: Object.values(value).reduce((a, b) => a + b, 0),
+  })),
   (d) => d.date,
 );
-console.table(outputTable.slice(-10));
-// console.log(output.slice(-10));
+console.table(outputTable.slice(-20));
 
 // TODO: get items under headings
