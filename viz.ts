@@ -7,10 +7,18 @@ const identity = (x: any) => x;
 
 /** Returns a new array sorted by `by`. Assumes return value of `by` is
  * comparable. Default value of `by` is the identity function. */
-export function sortBy<T>(arr: T[], by: (t: T) => any = identity): T[] {
+function sortBy<T>(arr: T[], by: (t: T) => any = identity): T[] {
   const copy = [...arr];
   copy.sort((a, b) => (by(a) < by(b) ? -1 : by(a) > by(b) ? 1 : 0));
   return copy;
+}
+
+function sum(nums: number[]) {
+  let result = 0;
+  for (const num of nums) {
+    result += num;
+  }
+  return result;
 }
 
 type RawGroup = {
@@ -118,9 +126,14 @@ for (const item of items) {
 
 // output for observable plot
 const output = sortBy(
-  Object.entries(counts).flatMap(([date, value]) =>
-    Object.entries(value).map(([area, count]) => ({ date, area, count }))
-  ),
+  Object.entries(counts).flatMap(([date, value]) => {
+    const entries = Object.entries(value);
+    return [...entries.map(([area, count]) => ({ date, area, count })), {
+      date,
+      area: "Total",
+      count: sum(entries.map(([_area, count]) => count)),
+    }];
+  }),
   (d) => d.date,
 );
 await Deno.writeTextFile(
