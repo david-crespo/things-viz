@@ -2,6 +2,7 @@
 
 import { maxBy, minBy } from "https://deno.land/std@0.209.0/collections/mod.ts";
 import dayjs from "npm:dayjs@1.11.10";
+import memoize from "npm:memoize";
 
 const identity = (x: any) => x;
 
@@ -90,9 +91,10 @@ const items: Item[] = data
 
 const dateToStr = (d: Date) => d.toISOString().slice(0, 10);
 
-function incrDay(d: string): string {
-  return dayjs(d).add(1, "days").format("YYYY-MM-DD");
-}
+// memoizing here cuts the whole script down from over 1s to like 100ms
+const incrDay = memoize((d: string) =>
+  dayjs(d).add(1, "days").format("YYYY-MM-DD")
+);
 
 const tomorrow = incrDay(dateToStr(new Date()));
 
