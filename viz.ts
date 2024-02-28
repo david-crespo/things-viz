@@ -55,18 +55,12 @@ const data = JSON.parse(
   await Deno.readTextFile(root + "/data.json"),
 ) as RawGroup[];
 
-// console.log(data.map(({ title, items }) => ({ title, l: items.length })));
-
 const projectAreas = Object.fromEntries(
   data
     .find((i) => i.title === "No Area")!
     .items.filter((i) => i.type === "project")
     .map((p) => [p.title, p.area_title]),
 );
-
-// console.log(data.find((i) => i.title === "Areas")!.items);
-
-const headingAreas = {};
 
 // TODO: do the same with heading areas. unclear whether this is possible, don't
 // see how to get heading -> area association
@@ -84,10 +78,6 @@ const items: Item[] = data
     created: new Date(i.created),
     stop_date: i.stop_date ? new Date(i.stop_date) : null,
   }));
-
-// console.log(
-//   items.filter((i) => !i.area && !i.project && i.status === "incomplete"),
-// );
 
 const dateToStr = (d: Date) => d.toISOString().slice(0, 10);
 
