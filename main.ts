@@ -1,29 +1,10 @@
 #!/usr/bin/env deno run --allow-net --allow-env --allow-read --allow-write --allow-run=things-cli,open
 
 import { parseArgs } from 'https://deno.land/std@0.221.0/cli/parse_args.ts'
-import { maxBy, minBy } from 'https://deno.land/std@0.209.0/collections/mod.ts'
-import { dateToStr, sortBy, sum } from './util.ts'
+import { sortBy } from './util.ts'
 import { plotsApp } from './plot.tsx'
 import { getCounts } from './viz.ts'
 import $ from 'https://deno.land/x/dax@0.39.2/mod.ts'
-
-async function getPlotData() {
-  const counts = await getCounts()
-
-  // output for observable plot
-  const output = sortBy(
-    Object.entries(counts).flatMap(([date, value]) => {
-      const entries = Object.entries(value)
-      return [...entries.map(([area, count]) => ({ date, area, count })), {
-        date,
-        area: 'Total',
-        count: sum(entries.map(([_area, count]) => count)),
-      }]
-    }),
-    (d) => d.date,
-  )
-  return output
-}
 
 async function printTable() {
   const counts = await getCounts()
@@ -43,7 +24,7 @@ usage: ./viz.ts [cmd]
 
 * 'table' prints table of the last 20 days
   * table is the default, so you can leave it out
-* 'serve' runs server showing plot
+* 'plot' runs server showing plot
 `
 
 if (import.meta.main) {
@@ -58,7 +39,7 @@ if (import.meta.main) {
     case 'table':
       await printTable()
       break
-    case 'serve':
+    case 'plot':
       Deno.serve({ port: 7827 }, plotsApp.fetch)
       await $`open http://localhost:7827`
       break
