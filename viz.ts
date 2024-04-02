@@ -1,5 +1,6 @@
 #!/usr/bin/env deno run --allow-env --allow-read --allow-write --allow-run=things-cli
 
+import { parseArgs } from "https://deno.land/std@0.221.0/cli/parse_args.ts";
 import { maxBy, minBy } from "https://deno.land/std@0.209.0/collections/mod.ts";
 import dayjs from "npm:dayjs@1.11.10";
 import memoize from "npm:memoize";
@@ -7,74 +8,120 @@ import { dateToStr, getAllItems, sortBy, sum } from "./util.ts";
 
 const root = "/Users/david/repos/things-viz";
 
-const items = await getAllItems();
+async function getCounts() {
+  const items = await getAllItems();
 
-const projectAreas = Object.fromEntries(
-  items
-    .filter((i) => i.type === "project")
-    .map((p) => [p.uuid, { project_title: p.title, area_title: p.area_title }]),
-);
+  // TODO: see if we're missing items under headings
 
-// memoizing here cuts the whole script down from over 1s to like 100ms
-const incrDay = memoize((d: string) =>
-  dayjs(d).add(1, "days").format("YYYY-MM-DD")
-);
+  const projectAreas = Object.fromEntries(
+    items
+      .filter((i) => i.type === "project")
+      .map((
+        p,
+      ) => [p.uuid, { project_title: p.title, area_title: p.area_title }]),
+  );
 
-const tomorrow = incrDay(dateToStr(new Date()));
+  // memoizing here cuts the whole script down from over 1s to like 100ms
+  const incrDay = memoize((d: string) =>
+    dayjs(d).add(1, "days").format("YYYY-MM-DD")
+  );
 
-const counts: Record<string, Record<string, number>> = {};
+  const tomorrow = incrDay(dateToStr(new Date()));
 
-// Create a dataset of days and counts. To start, all I care about is how
-// many items are open on a given day, i.e., is that date between created and
-// stop_date, inclusive. If an item is completed on a given day, we should
-// consider it open on that day and closed on the next
-for (const item of items) {
-  const start = dateToStr(item.created);
-  // if it is incomplete it is open for all days up to today. but
-  // actually go up to tomorrow to see items completed today
-  const end = item.stop_date ? dateToStr(item.stop_date) : tomorrow;
-  const area = item.area_title ||
-    (item.project ? projectAreas[item.project]?.area_title : undefined);
+  const counts: Record<string, Record<string, number>> = {};
 
-  for (let date = start; date <= end; date = incrDay(date)) {
-    const value = counts[date] || { "No area": 0 };
+  // Create a dataset of days and counts. To start, all I care about is how
+  // many items are open on a given day, i.e., is that date between created and
+  // stop_date, inclusive. If an item is completed on a given day, we should
+  // consider it open on that day and closed on the next
+  for (const item of items) {
+    const start = dateToStr(item.created);
+    // if it is incomplete it is open for all days up to today. but
+    // actually go up to tomorrow to see items completed today
+    const end = item.stop_date ? dateToStr(item.stop_date) : tomorrow;
+    const area = item.area_title ||
+      (item.project ? projectAreas[item.project]?.area_title : undefined);
 
-    // items in projects do not have the area directly on them. need to
-    // look up the area for the project
-    if (area) {
-      value[area] = (value[area] || 0) + 1;
-    } else {
-      value["No area"] += 1;
+    for (let date = start; date <= end; date = incrDay(date)) {
+      const value = counts[date] || { "No area": 0 };
+
+      // items in projects do not have the area directly on them. need to
+      // look up the area for the project
+      if (area) {
+        value[area] = (value[area] || 0) + 1;
+      } else {
+        value["No area"] += 1;
+      }
+      counts[date] = value;
     }
-    counts[date] = value;
   }
+
+  return counts;
 }
 
-// output for observable plot
-const output = sortBy(
-  Object.entries(counts).flatMap(([date, value]) => {
-    const entries = Object.entries(value);
-    return [...entries.map(([area, count]) => ({ date, area, count })), {
+async function getPlotData() {
+  const counts = await getCounts();
+
+  // output for observable plot
+  const output = sortBy(
+    Object.entries(counts).flatMap(([date, value]) => {
+      const entries = Object.entries(value);
+      return [...entries.map(([area, count]) => ({ date, area, count })), {
+        date,
+        area: "Total",
+        count: sum(entries.map(([_area, count]) => count)),
+      }];
+    }),
+    (d) => d.date,
+  );
+  await Deno.writeTextFile(
+    root + "/output.json",
+    JSON.stringify(output, null, "  "),
+  );
+  return output;
+}
+
+async function printTable() {
+  const counts = await getCounts();
+  const outputTable = sortBy(
+    Object.entries(counts).map(([date, value]) => ({
       date,
-      area: "Total",
-      count: sum(entries.map(([_area, count]) => count)),
-    }];
-  }),
-  (d) => d.date,
-);
-await Deno.writeTextFile(
-  root + "/output.json",
-  JSON.stringify(output, null, "  "),
-);
+      ...value,
+      Total: Object.values(value).reduce((a, b) => a + b, 0),
+    })),
+    (d) => d.date,
+  );
+  console.table(outputTable.slice(-20));
+}
 
-const outputTable = sortBy(
-  Object.entries(counts).map(([date, value]) => ({
-    date,
-    ...value,
-    Total: Object.values(value).reduce((a, b) => a + b, 0),
-  })),
-  (d) => d.date,
-);
-console.table(outputTable.slice(-20));
+const HELP = `
+usage: ./viz.ts [cmd]
 
-// TODO: get items under headings
+* 'table' prints table of the last 20 days
+  * table is the default, so you can leave it out
+* 'serve' runs server showing plot
+`;
+
+if (import.meta.main) {
+  const args = parseArgs(Deno.args, {
+    boolean: ["help"],
+    alias: { h: "help" },
+  });
+  if (args.help) {
+    console.log(HELP);
+    Deno.exit();
+  }
+  const cmd = args._.at(0);
+  switch (cmd) {
+    case undefined:
+    case "table":
+      await printTable();
+      break;
+    case "serve":
+      console.log("tbd");
+      break;
+    default:
+      console.log(`Error: unrecognized command: ${cmd}`);
+      console.log(HELP);
+  }
+}
