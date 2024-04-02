@@ -1,85 +1,19 @@
-#!/usr/bin/env deno run --allow-read --allow-write
+#!/usr/bin/env deno run --allow-env --allow-read --allow-write --allow-run=things-cli
 
 import { maxBy, minBy } from "https://deno.land/std@0.209.0/collections/mod.ts";
 import dayjs from "npm:dayjs@1.11.10";
 import memoize from "npm:memoize";
-
-const identity = (x: any) => x;
-
-/** Returns a new array sorted by `by`. Assumes return value of `by` is
- * comparable. Default value of `by` is the identity function. */
-function sortBy<T>(arr: T[], by: (t: T) => any = identity): T[] {
-  const copy = [...arr];
-  copy.sort((a, b) => (by(a) < by(b) ? -1 : by(a) > by(b) ? 1 : 0));
-  return copy;
-}
-
-function sum(nums: number[]) {
-  let result = 0;
-  for (const num of nums) {
-    result += num;
-  }
-  return result;
-}
-
-type RawGroup = {
-  title: string;
-  items: RawItem[];
-};
-
-type ItemBase = {
-  uuid: string;
-  type: "to-do" | "project" | "heading";
-  title: string;
-  status: "incomplete" | "completed";
-  area?: string;
-  area_title?: string;
-  project?: string;
-  project_title?: string;
-};
-
-type RawItem = ItemBase & {
-  created: string;
-  stop_date: string | null;
-};
-
-type Item = ItemBase & {
-  created: Date;
-  stop_date: Date | null;
-};
+import { dateToStr, getAllItems, sortBy, sum } from "./util.ts";
 
 const root = "/Users/david/repos/things-viz";
 
-// things-cli -j all > data.json
-const data = JSON.parse(
-  await Deno.readTextFile(root + "/data.json"),
-) as RawGroup[];
+const items = await getAllItems();
 
 const projectAreas = Object.fromEntries(
-  data
-    .flatMap((a) => a.items)
+  items
     .filter((i) => i.type === "project")
     .map((p) => [p.uuid, { project_title: p.title, area_title: p.area_title }]),
 );
-
-// TODO: do the same with heading areas. unclear whether this is possible, don't
-// see how to get heading -> area association
-
-const items: Item[] = data
-  .filter((i) =>
-    // No Area is projects
-    // Areas is areas
-    // Today is redundant -- items appear elsewhere
-    ["Upcoming", "Anytime", "Someday", "Logbook"].includes(i.title)
-  )
-  .flatMap((x) => x.items.filter((i) => i.type === "to-do"))
-  .map((i) => ({
-    ...i,
-    created: new Date(i.created),
-    stop_date: i.stop_date ? new Date(i.stop_date) : null,
-  }));
-
-const dateToStr = (d: Date) => d.toISOString().slice(0, 10);
 
 // memoizing here cuts the whole script down from over 1s to like 100ms
 const incrDay = memoize((d: string) =>
