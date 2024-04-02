@@ -1,10 +1,11 @@
-#!/usr/bin/env deno run --allow-env --allow-read --allow-write --allow-run=things-cli
+#!/usr/bin/env deno run --allow-net --allow-env --allow-read --allow-write --allow-run=things-cli
 
 import { parseArgs } from "https://deno.land/std@0.221.0/cli/parse_args.ts";
 import { maxBy, minBy } from "https://deno.land/std@0.209.0/collections/mod.ts";
 import dayjs from "npm:dayjs@1.11.10";
 import memoize from "npm:memoize";
 import { dateToStr, getAllItems, sortBy, sum } from "./util.ts";
+import { plotsApp } from "./plot.tsx";
 
 const root = "/Users/david/repos/things-viz";
 
@@ -118,7 +119,7 @@ if (import.meta.main) {
       await printTable();
       break;
     case "serve":
-      console.log("tbd");
+      Deno.serve(plotsApp.fetch);
       break;
     default:
       console.log(`Error: unrecognized command: ${cmd}`);
