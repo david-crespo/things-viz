@@ -57,9 +57,9 @@ const data = JSON.parse(
 
 const projectAreas = Object.fromEntries(
   data
-    .find((i) => i.title === "No Area")!
-    .items.filter((i) => i.type === "project")
-    .map((p) => [p.title, p.area_title]),
+    .flatMap((a) => a.items)
+    .filter((i) => i.type === "project")
+    .map((p) => [p.uuid, { project_title: p.title, area_title: p.area_title }]),
 );
 
 // TODO: do the same with heading areas. unclear whether this is possible, don't
@@ -100,7 +100,7 @@ for (const item of items) {
   // actually go up to tomorrow to see items completed today
   const end = item.stop_date ? dateToStr(item.stop_date) : tomorrow;
   const area = item.area_title ||
-    (item.project_title ? projectAreas[item.project_title] : undefined);
+    (item.project ? projectAreas[item.project]?.area_title : undefined);
 
   for (let date = start; date <= end; date = incrDay(date)) {
     const value = counts[date] || { "No area": 0 };
