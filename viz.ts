@@ -1,15 +1,9 @@
-#!/usr/bin/env deno run --allow-net --allow-env --allow-read --allow-write --allow-run=things-cli
-
-import { parseArgs } from "https://deno.land/std@0.221.0/cli/parse_args.ts";
-import { maxBy, minBy } from "https://deno.land/std@0.209.0/collections/mod.ts";
 import dayjs from "npm:dayjs@1.11.10";
 import memoize from "npm:memoize";
-import { dateToStr, getAllItems, sortBy, sum } from "./util.ts";
-import { plotsApp } from "./plot.tsx";
 
-const root = "/Users/david/repos/things-viz";
+import { dateToStr, getAllItems } from "./util.ts";
 
-async function getCounts() {
+export async function getCounts() {
   const items = await getAllItems();
 
   // TODO: see if we're missing items under headings
@@ -58,71 +52,4 @@ async function getCounts() {
   }
 
   return counts;
-}
-
-async function getPlotData() {
-  const counts = await getCounts();
-
-  // output for observable plot
-  const output = sortBy(
-    Object.entries(counts).flatMap(([date, value]) => {
-      const entries = Object.entries(value);
-      return [...entries.map(([area, count]) => ({ date, area, count })), {
-        date,
-        area: "Total",
-        count: sum(entries.map(([_area, count]) => count)),
-      }];
-    }),
-    (d) => d.date,
-  );
-  await Deno.writeTextFile(
-    root + "/output.json",
-    JSON.stringify(output, null, "  "),
-  );
-  return output;
-}
-
-async function printTable() {
-  const counts = await getCounts();
-  const outputTable = sortBy(
-    Object.entries(counts).map(([date, value]) => ({
-      date,
-      ...value,
-      Total: Object.values(value).reduce((a, b) => a + b, 0),
-    })),
-    (d) => d.date,
-  );
-  console.table(outputTable.slice(-20));
-}
-
-const HELP = `
-usage: ./viz.ts [cmd]
-
-* 'table' prints table of the last 20 days
-  * table is the default, so you can leave it out
-* 'serve' runs server showing plot
-`;
-
-if (import.meta.main) {
-  const args = parseArgs(Deno.args, {
-    boolean: ["help"],
-    alias: { h: "help" },
-  });
-  if (args.help) {
-    console.log(HELP);
-    Deno.exit();
-  }
-  const cmd = args._.at(0);
-  switch (cmd) {
-    case undefined:
-    case "table":
-      await printTable();
-      break;
-    case "serve":
-      Deno.serve(plotsApp.fetch);
-      break;
-    default:
-      console.log(`Error: unrecognized command: ${cmd}`);
-      console.log(HELP);
-  }
 }
