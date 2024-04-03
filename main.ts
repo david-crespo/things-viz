@@ -5,6 +5,8 @@ import { sortBy } from './util.ts'
 import { plotsApp } from './plot.tsx'
 import { getCounts } from './viz.ts'
 import $ from 'https://deno.land/x/dax@0.39.2/mod.ts'
+import { getPlotData } from './plot.tsx'
+import * as path from 'https://deno.land/std/path/mod.ts'
 
 async function printTable() {
   const counts = await getCounts()
@@ -17,6 +19,13 @@ async function printTable() {
     (d) => d.date,
   )
   console.table(outputTable.slice(-20))
+}
+
+async function writeJson() {
+  const jsonOutput = await getPlotData()
+  const currFile = path.fromFileUrl(import.meta.url)
+  const outputPath = path.join(path.dirname(currFile), 'output.json')
+  await Deno.writeTextFile(outputPath, JSON.stringify(jsonOutput))
 }
 
 const HELP = `
@@ -42,6 +51,9 @@ if (import.meta.main) {
     case 'plot':
       Deno.serve({ port: 7827 }, plotsApp.fetch)
       await $`open http://localhost:7827`
+      break
+    case 'json':
+      await writeJson()
       break
     default:
       console.log(`Error: unrecognized command: ${cmd}`)

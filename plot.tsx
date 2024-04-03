@@ -5,7 +5,7 @@ import { sortBy, sum } from './util.ts'
 import { getCounts } from './viz.ts'
 // import * as Plot from "npm:@observablehq/plot@0.6.14";
 
-async function getPlotData() {
+export async function getPlotData() {
   const counts = await getCounts()
 
   // output for observable plot
