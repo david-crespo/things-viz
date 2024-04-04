@@ -5,35 +5,9 @@ import './index.css'
 
 type Point = typeof allData[number]
 
-type P = { date: Date; count: number }
-
-function toWeekly(data: P[]): P[] {
-  const result: P[] = []
-  let currentWeekSum = 0
-  let weekStartDate: Date | null = null
-
-  data.forEach((point, index) => {
-    if (point.date.getDay() === 1 || weekStartDate === null) {
-      // start a new week, saving the old one and resetting the count
-      if (weekStartDate !== null) {
-        result.push({ date: weekStartDate, count: currentWeekSum })
-        currentWeekSum = 0
-      }
-      weekStartDate = point.date
-    }
-
-    currentWeekSum += point.count
-
-    if (index === data.length - 1) {
-      result.push({ date: weekStartDate, count: currentWeekSum })
-    }
-  })
-
-  return result
-}
-
-function movingAvg(data: P[], windowSize: number): P[] {
-  const result: P[] = []
+// assumes the data are sorted and there is a data point for every day
+function movingAvg(data: Point[], windowSize: number) {
+  const result = []
   let sum = 0
   let start = 0
 
@@ -87,7 +61,7 @@ const breakdownPlot = getPlot(
 const totalPlot = getPlot('Total', allData.filter(({ area }) => area === 'Total'))
 const oxidePlot = getPlot('Oxide', allData.filter(({ area }) => area === 'Oxide'))
 const completionsPlot = getPlot(
-  'Completions per week',
+  'Completions (30 day moving average)',
   movingAvg(allData.filter(({ area }) => area === 'Completions'), 30)
     .map((p) => ({ ...p, area: 'Completions' })),
 )
