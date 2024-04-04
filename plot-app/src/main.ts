@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
 import rawData from '../../output.json'
 import * as Plot from '@observablehq/plot'
+
+import './index.css'
 
 const getPlot = (label: string, data: typeof allData) =>
   Plot.plot({
@@ -35,22 +36,7 @@ const breakdownPlot = getPlot(
 const totalPlot = getPlot('total', allData.filter(({ area }) => area === 'Total'))
 const oxidePlot = getPlot('Oxide', allData.filter(({ area }) => area === 'Oxide'))
 
-function RenderPlot({ plot }: { plot: ReturnType<typeof Plot.plot> }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!containerRef.current) return
-    containerRef.current.append(plot)
-    return () => plot.remove()
-  }, [getPlot])
-  return <div ref={containerRef}></div>
-}
-
-export default function App() {
-  return (
-    <>
-      <RenderPlot plot={breakdownPlot} />
-      <RenderPlot plot={totalPlot} />
-      <RenderPlot plot={oxidePlot} />
-    </>
-  )
-}
+const div = document.querySelector('#root')!
+div.append(breakdownPlot)
+div.append(totalPlot)
+div.append(oxidePlot)
