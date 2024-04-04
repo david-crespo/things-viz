@@ -1,12 +1,11 @@
-#!/usr/bin/env deno run --allow-net --allow-env --allow-read --allow-write --allow-run=things-cli,open
+#!/usr/bin/env deno run --allow-net --allow-env --allow-read --allow-write --allow-run=things-cli,open,npm
 
+import * as path from 'https://deno.land/std@0.221.0/path/mod.ts'
 import { parseArgs } from 'https://deno.land/std@0.221.0/cli/parse_args.ts'
-import { sortBy } from './util.ts'
-import { plotsApp } from './plot.tsx'
-import { getCounts } from './viz.ts'
 import $ from 'https://deno.land/x/dax@0.39.2/mod.ts'
-import { getPlotData } from './plot.tsx'
-import * as path from 'https://deno.land/std/path/mod.ts'
+
+import { sortBy, sum } from './util.ts'
+import { getCounts } from './viz.ts'
 
 async function printTable() {
   const counts = await getCounts()
@@ -21,11 +20,32 @@ async function printTable() {
   console.table(outputTable.slice(-30))
 }
 
+async function getPlotData() {
+  const counts = await getCounts()
+
+  // output for observable plot
+  const output = sortBy(
+    Object.entries(counts).flatMap(([date, value]) => {
+      const entries = Object.entries(value)
+      return [...entries.map(([area, count]) => ({ date, area, count })), {
+        date,
+        area: 'Total',
+        count: sum(entries.map(([_area, count]) => count)),
+      }]
+    }),
+    (d) => d.date,
+  )
+  return output
+}
+
+function relToAbs(relPath: string) {
+  const currFile = path.fromFileUrl(import.meta.url)
+  return path.join(path.dirname(currFile), relPath)
+}
+
 async function writeJson() {
   const jsonOutput = await getPlotData()
-  const currFile = path.fromFileUrl(import.meta.url)
-  const outputPath = path.join(path.dirname(currFile), 'output.json')
-  await Deno.writeTextFile(outputPath, JSON.stringify(jsonOutput))
+  await Deno.writeTextFile(relToAbs('./output.json'), JSON.stringify(jsonOutput))
 }
 
 const HELP = `
@@ -49,8 +69,8 @@ if (import.meta.main) {
       await printTable()
       break
     case 'plot':
-      Deno.serve({ port: 7827 }, plotsApp.fetch)
-      await $`open http://localhost:7827`
+      await writeJson()
+      await $`npm run --prefix ${relToAbs('./plot-app')} dev -- --open`
       break
     case 'json':
       await writeJson()
