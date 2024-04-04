@@ -5,6 +5,7 @@ import './index.css'
 
 const getPlot = (label: string, data: typeof allData) =>
   Plot.plot({
+    width: 960,
     style: 'overflow: visible;',
     y: { grid: true },
     title: `Open to-dos (${label})`,
