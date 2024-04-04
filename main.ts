@@ -18,7 +18,7 @@ async function printTable() {
     })),
     (d) => d.date,
   )
-  console.table(outputTable.slice(-20))
+  console.table(outputTable.slice(-30))
 }
 
 async function writeJson() {
