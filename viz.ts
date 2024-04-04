@@ -1,7 +1,7 @@
 import dayjs from 'npm:dayjs@1.11.10'
 import memoize from 'npm:memoize'
 
-import { dateToStr, getAllItems } from './util.ts'
+import { dateToStr, getAllItems, sortBy } from './util.ts'
 
 export async function getCounts() {
   const items = await getAllItems()
@@ -21,7 +21,13 @@ export async function getCounts() {
 
   const tomorrow = incrDay(dateToStr(new Date()))
 
-  const counts: Record<string, Record<string, number>> = {}
+  type DateKey = string
+  type DateCounts = Record<string, number>
+  const counts: Record<DateKey, DateCounts> = {}
+
+  const NO_AREA = 'No area'
+  const TOTAL = 'Total'
+  const initCounts = (): DateCounts => ({ [TOTAL]: 0, [NO_AREA]: 0 })
 
   // Create a dataset of days and counts. To start, all I care about is how
   // many items are open on a given day, i.e., is that date between created and
@@ -32,22 +38,21 @@ export async function getCounts() {
     // if it is incomplete it is open for all days up to today. but
     // actually go up to tomorrow to see items completed today
     const end = item.stop_date ? dateToStr(item.stop_date) : tomorrow
-    const area = item.area_title ||
-      (item.project ? projectAreas[item.project]?.area_title : undefined)
 
+    const projectArea = item.project ? projectAreas[item.project]?.area_title : undefined
+    const area = item.area_title || projectArea || NO_AREA
+
+    // for each date in the range for this item, increment the counts
     for (let date = start; date <= end; date = incrDay(date)) {
-      const value = counts[date] || { 'No area': 0 }
-
-      // items in projects do not have the area directly on them. need to
-      // look up the area for the project
-      if (area) {
-        value[area] = (value[area] || 0) + 1
-      } else {
-        value['No area'] += 1
-      }
-      counts[date] = value
+      const dateCounts = counts[date] || initCounts()
+      dateCounts[area] = (dateCounts[area] || 0) + 1
+      dateCounts[TOTAL] += 1
+      counts[date] = dateCounts
     }
   }
 
-  return counts
+  return sortBy(
+    Object.entries(counts).map(([date, value]) => ({ date, ...value })),
+    (c) => c.date,
+  )
 }
