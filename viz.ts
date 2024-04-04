@@ -27,7 +27,8 @@ export async function getCounts() {
 
   const NO_AREA = 'No area'
   const TOTAL = 'Total'
-  const initCounts = (): DateCounts => ({ [TOTAL]: 0, [NO_AREA]: 0 })
+  const COMP = 'Completions'
+  const initCounts = (): DateCounts => ({ [TOTAL]: 0, [NO_AREA]: 0, [COMP]: 0 })
 
   // Create a dataset of days and counts. To start, all I care about is how
   // many items are open on a given day, i.e., is that date between created and
@@ -47,6 +48,7 @@ export async function getCounts() {
       const dateCounts = counts[date] || initCounts()
       dateCounts[area] = (dateCounts[area] || 0) + 1
       dateCounts[TOTAL] += 1
+      if (date === end && date !== tomorrow) dateCounts[COMP] += 1
       counts[date] = dateCounts
     }
   }
