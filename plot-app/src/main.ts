@@ -1,5 +1,6 @@
 import rawData from '../../output.json'
 import * as Plot from '@observablehq/plot'
+import { dateToStr } from '../../util.ts'
 
 import './index.css'
 
@@ -47,27 +48,53 @@ const getPlot = (title: string, data: Point[]) =>
     ],
   })
 
-const allData = rawData
-  .map(({ date, ...rest }) => ({ date: new Date(date), ...rest }))
+const getStartInput = () => document.querySelector('input[name=start]')!
+const getEndInput = () => document.querySelector('input[name=end]')!
 
-const cutoff = new Date(2022, 0, 1)
+function render() {
+  const start = new Date(getStartInput().value)
+  const end = new Date(getEndInput().value)
 
-const breakdownPlot = getPlot(
-  'Breakdown',
-  allData.filter(({ area, date }) =>
-    area !== 'Total' && area !== 'Completions' && date > cutoff
-  ),
-)
-const totalPlot = getPlot('Total', allData.filter(({ area }) => area === 'Total'))
-const oxidePlot = getPlot('Oxide', allData.filter(({ area }) => area === 'Oxide'))
-const completionsPlot = getPlot(
-  'Completions (30 day moving average)',
-  movingAvg(allData.filter(({ area }) => area === 'Completions'), 30)
-    .map((p) => ({ ...p, area: 'Completions' })),
-)
+  const allData = rawData
+    .map(({ date, ...rest }) => ({ date: new Date(date), ...rest })).filter(({ date }) =>
+      date >= start && date <= end
+    )
 
-const div = document.querySelector('#root')!
-div.append(breakdownPlot)
-div.append(totalPlot)
-div.append(oxidePlot)
-div.append(completionsPlot)
+  const breakdownPlot = getPlot(
+    'Breakdown',
+    allData.filter(({ area, date }) => area !== 'Total' && area !== 'Completions'),
+  )
+  const totalPlot = getPlot('Total', allData.filter(({ area }) => area === 'Total'))
+  const oxidePlot = getPlot('Oxide', allData.filter(({ area }) => area === 'Oxide'))
+  const completionsPlot = getPlot(
+    'Completions (30 day moving average)',
+    movingAvg(allData.filter(({ area }) => area === 'Completions'), 30)
+      .map((p) => ({ ...p, area: 'Completions' })),
+  )
+
+  const div = document.querySelector('#plots')!
+
+  div.innerHTML = ''
+  div.append(breakdownPlot)
+  div.append(totalPlot)
+  div.append(oxidePlot)
+  div.append(completionsPlot)
+}
+
+function daysAgo(n: number) {
+  const today = new Date()
+  const start = new Date()
+  start.setDate(today.getDate() - n)
+  return start
+}
+
+function renderLast(n: number) {
+  getStartInput().value = dateToStr(daysAgo(n))
+  getEndInput().value = dateToStr(daysAgo(-1))
+  render()
+}
+
+renderLast(365)
+
+window.render = render
+window.renderLast = renderLast

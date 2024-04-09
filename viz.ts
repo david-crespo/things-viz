@@ -1,7 +1,8 @@
 import dayjs from 'npm:dayjs@1.11.10'
 import memoize from 'npm:memoize'
 
-import { dateToStr, getAllItems, sortBy } from './util.ts'
+import { dateToStr, sortBy } from './util.ts'
+import { getAllItems } from './data.ts'
 
 export async function getCounts() {
   const items = await getAllItems()
