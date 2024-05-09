@@ -4,7 +4,7 @@ import * as path from 'https://deno.land/std@0.221.0/path/mod.ts'
 import { parseArgs } from 'https://deno.land/std@0.221.0/cli/parse_args.ts'
 import $ from 'https://deno.land/x/dax@0.39.2/mod.ts'
 
-import { getCounts } from './viz.ts'
+import { getCounts, NO_AREA } from './viz.ts'
 
 function relToAbs(relPath: string) {
   const currFile = path.fromFileUrl(import.meta.url)
@@ -29,8 +29,12 @@ if (import.meta.main) {
   switch (cmd) {
     case undefined:
     case 'table': {
-      const counts = await getCounts()
-      console.table(counts.slice(-30))
+      const counts = (await getCounts()).slice(-30)
+      // if there are no non-zero No area counts, remove the column
+      if (!counts.some((c) => c[NO_AREA])) {
+        counts.forEach((c) => delete c[NO_AREA])
+      }
+      console.table(counts)
       break
     }
     case 'plot': {

@@ -4,9 +4,9 @@ import $ from 'https://deno.land/x/dax@0.39.2/mod.ts'
 import { dateToStr } from './util.ts'
 import { getAllItems } from './data.ts'
 
-const allItems = await getAllItems()
+const { todos } = await getAllItems()
 
-const items = allItems.map((i) => {
+const items = todos.map((i) => {
   const complete = !!i.stop_date
   const date = dateToStr(i.stop_date || i.created)
   return [i.uuid, complete ? '[x]' : '[ ]', date, i.title]
