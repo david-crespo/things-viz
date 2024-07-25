@@ -66,10 +66,17 @@ function render() {
   )
   const totalPlot = getPlot('Total', allData.filter(({ area }) => area === 'Total'))
   const oxidePlot = getPlot('Oxide', allData.filter(({ area }) => area === 'Oxide'))
+
+  const completionsData = allData.filter(({ area }) => area === 'Completions')
+
+  // remove last data point because it's a fake one that's always zero
+  if (completionsData.at(-1).count === 0) {
+    completionsData.pop()
+  }
+
   const completionsPlot = getPlot(
     'Completions (30 day moving average)',
-    movingAvg(allData.filter(({ area }) => area === 'Completions'), 30)
-      .map((p) => ({ ...p, area: 'Completions' })),
+    movingAvg(completionsData, 30).map((p) => ({ ...p, area: 'Completions' })),
   )
 
   const div = document.querySelector('#plots')!
