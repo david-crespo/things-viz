@@ -4,7 +4,7 @@ import $ from 'https://deno.land/x/dax@0.39.2/mod.ts'
 import { dateToStr } from './util.ts'
 import { getAllItems } from './data.ts'
 
-const { todos } = await getAllItems()
+const todos = await getAllItems()
 
 const items = todos.map((i) => {
   const complete = !!i.stop_date

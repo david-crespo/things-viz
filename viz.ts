@@ -2,28 +2,14 @@ import dayjs from 'npm:dayjs@1.11.10'
 import memoize from 'npm:memoize'
 
 import { dateToStr, sortBy } from './util.ts'
-import { getAllItems, type Item } from './data.ts'
+import { getAllItems } from './data.ts'
 
 export const NO_AREA = 'No area'
 const TOTAL = 'Total'
 const COMP = 'Completions'
 
 export async function getCounts() {
-  const { todos, projects } = await getAllItems()
-
-  // TODO: see if we're missing items under headings
-
-  const projectAreas = Object.fromEntries(
-    projects
-      .map((
-        p,
-      ) => [p.uuid, { project_title: p.title, area_title: p.area_title }]),
-  )
-
-  function getArea(item: Item) {
-    const projectArea = item.project ? projectAreas[item.project]?.area_title : undefined
-    return item.area_title || projectArea || NO_AREA
-  }
+  const todos = await getAllItems()
 
   // memoizing here cuts the whole script down from over 1s to like 100ms
   const incrDay = memoize((d: string) => dayjs(d).add(1, 'days').format('YYYY-MM-DD'))
@@ -45,12 +31,11 @@ export async function getCounts() {
     // if it is incomplete it is open for all days up to today. but
     // actually go up to tomorrow to see items completed today
     const end = item.stop_date ? dateToStr(item.stop_date) : tomorrow
-    const area = getArea(item)
 
     // for each date in the range for this item, increment the counts
     for (let date = start; date <= end; date = incrDay(date)) {
       const dateCounts = counts[date] || initCounts()
-      dateCounts[area] = (dateCounts[area] || 0) + 1
+      dateCounts[item.area_title] = (dateCounts[item.area_title] || 0) + 1
       dateCounts[TOTAL] += 1
       if (date === end && date !== tomorrow) dateCounts[COMP] += 1
       counts[date] = dateCounts

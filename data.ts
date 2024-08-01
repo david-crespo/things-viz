@@ -24,24 +24,31 @@ type RawItem = ItemBase & {
 export type Item = ItemBase & {
   created: Date
   stop_date: Date | null
+  area_title: string
 }
 
-function parseDates(i: RawItem): Item {
-  return {
-    ...i,
-    created: new Date(i.created),
-    stop_date: i.stop_date ? new Date(i.stop_date) : null,
-  }
-}
+export const NO_AREA = 'No area'
 
-export async function getAllItems(): Promise<{ todos: Item[]; projects: Item[] }> {
-  const items = ((await $`things-cli -j all`.json()) as RawGroup[])
+export async function getAllItems(): Promise<Item[]> {
+  const rawItems = ((await $`things-cli -j all`.json()) as RawGroup[])
     // No Area is projects, Areas is areas, Today is redundant -- items appear elsewhere
     .filter((i) => ['Upcoming', 'Anytime', 'Someday', 'Logbook'].includes(i.title))
     .flatMap((x) => x.items)
-    .map(parseDates)
-  return {
-    todos: items.filter((i) => i.type === 'to-do'),
-    projects: items.filter((i) => i.type === 'project'),
-  }
+
+  const projects = rawItems.filter((i) => i.type === 'project')
+  const projectAreas = Object.fromEntries(
+    projects
+      .map((p) => [p.uuid, { project_title: p.title, area_title: p.area_title }]),
+  )
+
+  // parse dates and make sure everyhing
+  return rawItems.filter((i) => i.type === 'to-do').map((item) => {
+    const projectArea = item.project ? projectAreas[item.project]?.area_title : undefined
+    return {
+      ...item,
+      created: new Date(item.created),
+      stop_date: item.stop_date ? new Date(item.stop_date) : null,
+      area_title: item.area_title || projectArea || NO_AREA,
+    }
+  })
 }
