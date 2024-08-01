@@ -9,7 +9,7 @@ type ItemBase = {
   uuid: string
   type: 'to-do' | 'project' | 'heading'
   title: string
-  status: 'incomplete' | 'completed'
+  status: 'incomplete' | 'completed' | 'canceled'
   area?: string
   area_title?: string
   project?: string
