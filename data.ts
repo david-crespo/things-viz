@@ -1,72 +1,86 @@
-import $ from 'https://deno.land/x/dax@0.39.2/mod.ts'
+import $ from 'jsr:@david/dax@0.42.0'
+import { z } from 'npm:zod@3.24.1'
 
-type RawGroup = {
-  title: string
-  items: RawItem[]
-}
+const itemShared = z.object({
+  uuid: z.string(),
+  title: z.string(),
+  status: z.enum(['incomplete', 'completed', 'canceled']),
+  created: z.string(),
+  stop_date: z.union([z.string(), z.null()]),
+})
 
-type ItemBase = {
-  uuid: string
-  type: 'to-do' | 'project' | 'heading'
-  title: string
-  status: 'incomplete' | 'completed' | 'canceled'
-  area?: string
-  area_title?: string
-  project?: string
-  project_title?: string
-  heading?: string
-  heading_title?: string
-}
+const todoSchema = z.object({
+  type: z.literal('to-do'),
+  heading: z.string().optional(),
+  heading_title: z.string().optional(),
+  project: z.string().optional(),
+  project_title: z.string().optional(),
+  area: z.string().optional(),
+  area_title: z.string().optional(),
+})
 
-type RawItem = ItemBase & {
-  created: string
-  stop_date: string | null
-}
+// projects are usually in areas but don't have to be
+const projectSchema = z.object({
+  type: z.literal('project'),
+  area: z.string().optional(), // a UUID
+  area_title: z.string().optional(),
+})
 
-export type Item = ItemBase & {
-  created: Date
-  stop_date: Date | null
-  area_title: string
-}
+// headings are always in projects
+const headingSchema = z.object({
+  type: z.literal('heading'),
+  project: z.string(), // a UUID
+  project_title: z.string(),
+})
+
+const itemSchema = z.discriminatedUnion('type', [
+  todoSchema.merge(itemShared),
+  projectSchema.merge(itemShared),
+  headingSchema.merge(itemShared),
+  // only one that doesn't use the shared thing
+  z.object({ type: z.literal('area'), uuid: z.string(), title: z.string() }),
+])
+
+/** An array of group objects */
+const allItemsSchema = z.array(z.object({
+  title: z.string(),
+  items: z.array(itemSchema),
+}))
 
 export const NO_AREA = 'No area'
 
-export async function getAllItems(): Promise<Item[]> {
-  const rawItems = ((await $`things-cli -j all`.json()) as RawGroup[])
+export async function getAllItems() {
+  const parsedItems = allItemsSchema.parse(await $`things-cli -j all`.json())
     // No Area is projects, Areas is areas, Today is redundant -- items appear elsewhere
     .filter((i) => ['Upcoming', 'Anytime', 'Someday', 'Logbook'].includes(i.title))
     .flatMap((x) => x.items)
 
-  const projects = rawItems.filter((i) => i.type === 'project')
   const projectAreas = Object.fromEntries(
-    projects
-      .map((p) => [p.uuid, { project_title: p.title, area_title: p.area_title }]),
+    parsedItems
+      .filter((i) => i.type === 'project')
+      .map((p) => [p.uuid, p.area_title]),
   )
 
   // headings only exist in projects. to get the area you need to go through the project
-  const headings = rawItems.filter((i) => i.type === 'heading')
-  const headingProjects = Object.fromEntries(
-    headings
-      .map((
+  const headingAreas = Object.fromEntries(
+    parsedItems
+      .filter((i) => i.type === 'heading').map((
         h,
-      ) => [h.uuid, {
-        heading_title: h.title,
-        area_title: projectAreas[h.project!]?.area_title,
-      }]),
+      ) => [h.uuid, projectAreas[h.project]]),
   )
 
   // parse dates and make sure everyhing
-  return rawItems.filter((i) => i.type === 'to-do').map((item) => {
-    const projectArea = item.project
-      ? projectAreas[item.project]?.area_title
-      : item.heading
-      ? headingProjects[item.heading]?.area_title
-      : undefined
+  return parsedItems.filter((i) => i.type === 'to-do').map((item) => {
     return {
       ...item,
       created: new Date(item.created),
       stop_date: item.stop_date ? new Date(item.stop_date) : null,
-      area_title: item.area_title || projectArea || NO_AREA,
+      area_title: item.area_title ||
+        (item.project
+          ? projectAreas[item.project]!
+          : item.heading
+          ? headingAreas[item.heading]!
+          : NO_AREA),
     }
   })
 }
