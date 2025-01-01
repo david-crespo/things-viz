@@ -14,6 +14,8 @@ type ItemBase = {
   area_title?: string
   project?: string
   project_title?: string
+  heading?: string
+  heading_title?: string
 }
 
 type RawItem = ItemBase & {
@@ -41,9 +43,25 @@ export async function getAllItems(): Promise<Item[]> {
       .map((p) => [p.uuid, { project_title: p.title, area_title: p.area_title }]),
   )
 
+  // headings only exist in projects. to get the area you need to go through the project
+  const headings = rawItems.filter((i) => i.type === 'heading')
+  const headingProjects = Object.fromEntries(
+    headings
+      .map((
+        h,
+      ) => [h.uuid, {
+        heading_title: h.title,
+        area_title: projectAreas[h.project!]?.area_title,
+      }]),
+  )
+
   // parse dates and make sure everyhing
   return rawItems.filter((i) => i.type === 'to-do').map((item) => {
-    const projectArea = item.project ? projectAreas[item.project]?.area_title : undefined
+    const projectArea = item.project
+      ? projectAreas[item.project]?.area_title
+      : item.heading
+      ? headingProjects[item.heading]?.area_title
+      : undefined
     return {
       ...item,
       created: new Date(item.created),
