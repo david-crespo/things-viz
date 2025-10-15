@@ -7,6 +7,7 @@ const itemShared = z.object({
   status: z.enum(['incomplete', 'completed', 'canceled']),
   created: z.string(),
   stop_date: z.union([z.string(), z.null()]),
+  notes: z.string().optional(),
 })
 
 const todoSchema = z.object({

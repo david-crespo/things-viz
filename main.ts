@@ -72,4 +72,26 @@ program
     )
   })
 
+program
+  .command('todo')
+  .description('lists incomplete items')
+  .option('-a, --area <area>', 'filter by area name')
+  .option('-v, --verbose', 'include notes/contents of todo')
+  .action(async (options: { area?: string; verbose?: boolean }) => {
+    let todos = (await getAllItems()).filter((todo) => todo.status === 'incomplete')
+    if (options.area) {
+      todos = todos.filter((todo) => todo.area_title.toLowerCase() === options.area!.toLowerCase())
+    }
+    todos.forEach((todo) => {
+      const date = todo.created.toISOString().slice(0, 10)
+      const area = todo.area_title || ''
+      const project = todo.project_title ? ` > ${todo.project_title}` : ''
+      const location = area || project ? `[${area}${project}] ` : ''
+      console.log(`${date} ${location}${todo.title}`)
+      if (options.verbose && todo.notes) {
+        console.log(`  ${todo.notes.replace(/\n/g, '\n  ')}`)
+      }
+    })
+  })
+
 await program.parseAsync(Deno.args, { from: 'user' })
