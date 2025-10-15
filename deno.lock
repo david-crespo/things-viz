@@ -15,6 +15,7 @@
     "jsr:@std/path@1": "1.1.2",
     "jsr:@std/path@^1.0.8": "1.1.2",
     "jsr:@std/path@^1.1.1": "1.1.2",
+    "npm:commander@^14.0.1": "14.0.1",
     "npm:dayjs@^1.11.18": "1.11.18",
     "npm:memoize@^10.1.0": "10.1.0",
     "npm:zod@^4.1.12": "4.1.12"
@@ -81,6 +82,9 @@
     }
   },
   "npm": {
+    "commander@14.0.1": {
+      "integrity": "sha512-2JkV3gUZUVrbNA+1sjBOYLsMZ5cEEl8GTFP2a4AVz5hvasAMCQ1D2l2le/cX+pV4N6ZU17zjUahLpIXRrnWL8A=="
+    },
     "dayjs@1.11.18": {
       "integrity": "sha512-zFBQ7WFRvVRhKcWoUh+ZA1g2HVgUbsZm9sbddh8EC5iv93sui8DVVz1Npvz+r6meo9VKfa8NyLWBsQK1VvIKPA=="
     },
@@ -570,6 +574,7 @@
       "jsr:@david/dax@~0.43.2",
       "jsr:@std/cli@^1.0.6",
       "jsr:@std/path@^1.0.8",
+      "npm:commander@^14.0.1",
       "npm:dayjs@^1.11.18",
       "npm:memoize@^10.1.0",
       "npm:zod@^4.1.12"

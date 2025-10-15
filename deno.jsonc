@@ -13,6 +13,7 @@
     "dax": "jsr:@david/dax@^0.43.2",
     "zod": "npm:zod@^4.1.12",
     "dayjs": "npm:dayjs@^1.11.18",
-    "memoize": "npm:memoize@^10.1.0"
+    "memoize": "npm:memoize@^10.1.0",
+    "commander": "npm:commander@^14.0.1"
   }
 }
