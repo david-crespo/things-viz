@@ -1,8 +1,8 @@
 #!/usr/bin/env deno run --allow-net --allow-env --allow-read --allow-write --allow-run=things-cli,open,npm
 
-import * as path from 'https://deno.land/std@0.221.0/path/mod.ts'
-import { parseArgs } from 'https://deno.land/std@0.221.0/cli/parse_args.ts'
-import $ from 'https://deno.land/x/dax@0.39.2/mod.ts'
+import * as path from '@std/path'
+import { parseArgs } from '@std/cli/parse-args'
+import $ from 'dax'
 
 import { getCounts, NO_AREA } from './viz.ts'
 import { getAllItems } from './data.ts'

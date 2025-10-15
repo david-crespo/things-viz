@@ -1,5 +1,5 @@
-import $ from 'jsr:@david/dax@0.42.0'
-import { z } from 'npm:zod@3.24.1'
+import $ from 'dax'
+import { z } from 'zod'
 
 const itemShared = z.object({
   uuid: z.string(),

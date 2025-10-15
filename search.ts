@@ -1,6 +1,6 @@
 #!/usr/bin/env deno run --allow-env --allow-read --allow-run=things-cli,fzf,open
 
-import $ from 'https://deno.land/x/dax@0.39.2/mod.ts'
+import $ from 'dax'
 import { dateToStr } from './util.ts'
 import { getAllItems } from './data.ts'
 

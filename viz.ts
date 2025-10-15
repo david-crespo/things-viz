@@ -1,5 +1,5 @@
-import dayjs from 'npm:dayjs@1.11.10'
-import memoize from 'npm:memoize'
+import dayjs from 'dayjs'
+import memoize from 'memoize'
 
 import { dateToStr, sortBy } from './util.ts'
 import { getAllItems } from './data.ts'

@@ -6,5 +6,13 @@
     "lineWidth": 92,
     "semiColons": false,
     "singleQuote": true
+  },
+  "imports": {
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "@std/cli": "jsr:@std/cli@^1.0.9",
+    "dax": "jsr:@david/dax@^0.42.0",
+    "zod": "npm:zod@^3.24.1",
+    "dayjs": "npm:dayjs@^1.11.10",
+    "memoize": "npm:memoize@^10.0.0"
   }
 }
