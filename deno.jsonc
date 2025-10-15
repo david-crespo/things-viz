@@ -9,10 +9,10 @@
   },
   "imports": {
     "@std/path": "jsr:@std/path@^1.0.8",
-    "@std/cli": "jsr:@std/cli@^1.0.9",
-    "dax": "jsr:@david/dax@^0.42.0",
-    "zod": "npm:zod@^3.24.1",
-    "dayjs": "npm:dayjs@^1.11.10",
-    "memoize": "npm:memoize@^10.0.0"
+    "@std/cli": "jsr:@std/cli@^1.0.6",
+    "dax": "jsr:@david/dax@^0.43.2",
+    "zod": "npm:zod@^4.1.12",
+    "dayjs": "npm:dayjs@^1.11.18",
+    "memoize": "npm:memoize@^10.1.0"
   }
 }
