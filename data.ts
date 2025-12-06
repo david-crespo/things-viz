@@ -6,7 +6,11 @@ const itemShared = z.object({
   title: z.string(),
   status: z.enum(['incomplete', 'completed', 'canceled']),
   created: z.string(),
-  stop_date: z.union([z.string(), z.null()]),
+  modified: z.string().nullable(),
+  start: z.string(), // "Anytime", "Someday", "Upcoming", etc.
+  start_date: z.string().nullable(), // scheduled date
+  deadline: z.string().nullable(),
+  stop_date: z.string().nullable(),
   notes: z.string().optional(),
 })
 
@@ -70,11 +74,14 @@ export async function getAllItems() {
       ) => [h.uuid, projectAreas[h.project]]),
   )
 
-  // parse dates and make sure everyhing
+  // parse dates and make sure everything has area_title
   return parsedItems.filter((i) => i.type === 'to-do').map((item) => {
     return {
       ...item,
       created: new Date(item.created),
+      modified: item.modified ? new Date(item.modified) : null,
+      start_date: item.start_date ? new Date(item.start_date) : null,
+      deadline: item.deadline ? new Date(item.deadline) : null,
       stop_date: item.stop_date ? new Date(item.stop_date) : null,
       area_title: item.area_title ||
         (item.project
