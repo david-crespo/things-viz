@@ -15,11 +15,20 @@ function relToAbs(relPath: string) {
 
 if (!import.meta.main) Deno.exit()
 
+type Format = 'table' | 'json' | 'tsv'
+
 function renderCountsTable(counts: Record<string, unknown>[]) {
   if (counts.length === 0) return
   const headers = Object.keys(counts[0])
   const rows = counts.map((c) => headers.map((h) => String(c[h] ?? '')))
   new Table().header(headers).body(rows).padding(1).render()
+}
+
+function renderTsv(headers: string[], rows: (string | null | undefined)[][]) {
+  const escape = (v: string | null | undefined) =>
+    (v ?? '').replace(/[\t\n\r]/g, ' ')
+  console.log(headers.join('\t'))
+  rows.forEach((row) => console.log(row.map(escape).join('\t')))
 }
 
 await new Command()
@@ -82,8 +91,9 @@ await new Command()
   .option('-d, --deadline', 'only show items with deadlines')
   .option('-r, --recent <days:integer>', 'only show items modified in last N days')
   .option('-v, --verbose', 'include notes/contents of todo')
-  .option('-j, --json', 'output as JSON')
+  .option('-f, --format <format:string>', 'output format: table, json, tsv', { default: 'table' })
   .action(async (options) => {
+    const format = options.format as Format
     let todos = (await getAllItems()).filter((todo) => todo.status === 'incomplete')
 
     if (options.area) {
@@ -113,7 +123,7 @@ await new Command()
       todos = todos.filter((todo) => todo.modified && todo.modified >= cutoff)
     }
 
-    if (options.json) {
+    if (format === 'json') {
       console.log(
         JSON.stringify(
           todos.map((todo) => ({
@@ -131,6 +141,21 @@ await new Command()
           2
         )
       )
+      return
+    }
+
+    if (format === 'tsv') {
+      const showArea = !options.area
+      const headers = ['created', ...(showArea ? ['area'] : []), 'project', 'title', 'scheduled', 'deadline']
+      const rows = todos.map((todo) => [
+        todo.created.toISOString().slice(0, 10),
+        ...(showArea ? [todo.area_title] : []),
+        todo.project_title,
+        todo.title,
+        todo.start_date?.toISOString().slice(0, 10),
+        todo.deadline?.toISOString().slice(0, 10),
+      ])
+      renderTsv(headers, rows)
       return
     }
 
@@ -177,12 +202,15 @@ await new Command()
   .reset()
   .command('areas')
   .description('lists all areas')
-  .option('-j, --json', 'output as JSON')
+  .option('-f, --format <format:string>', 'output format: table, json, tsv', { default: 'table' })
   .action(async (options) => {
+    const format = options.format as Format
     const todos = await getAllItems()
     const areas = [...new Set(todos.map((t) => t.area_title))].filter(Boolean).sort()
-    if (options.json) {
+    if (format === 'json') {
       console.log(JSON.stringify(areas, null, 2))
+    } else if (format === 'tsv') {
+      renderTsv(['area'], areas.map((a) => [a]))
     } else {
       new Table()
         .header(['area'])
@@ -195,8 +223,9 @@ await new Command()
   .command('projects')
   .description('lists all projects with incomplete todos')
   .option('-a, --area <area:string>', 'filter by area name')
-  .option('-j, --json', 'output as JSON')
+  .option('-f, --format <format:string>', 'output format: table, json, tsv', { default: 'table' })
   .action(async (options) => {
+    const format = options.format as Format
     let todos = (await getAllItems()).filter(
       (t) => t.status === 'incomplete' && t.project_title
     )
@@ -210,8 +239,10 @@ await new Command()
     const projects = [...projectSet.entries()]
       .map(([project, area]) => ({ project, area }))
       .sort((a, b) => `${a.area}${a.project}`.localeCompare(`${b.area}${b.project}`))
-    if (options.json) {
+    if (format === 'json') {
       console.log(JSON.stringify(projects, null, 2))
+    } else if (format === 'tsv') {
+      renderTsv(['area', 'project'], projects.map((p) => [p.area, p.project]))
     } else {
       new Table()
         .header(['area', 'project'])
