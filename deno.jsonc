@@ -14,6 +14,7 @@
     "dayjs": "npm:dayjs@^1.11.18",
     "memoize": "npm:memoize@^10.1.0",
     "@cliffy/command": "jsr:@cliffy/command@1.0.0-rc.8",
-    "@cliffy/table": "jsr:@cliffy/table@1.0.0-rc.8"
+    "@cliffy/table": "jsr:@cliffy/table@1.0.0-rc.8",
+    "ts-pattern": "npm:ts-pattern@^5.9.0"
   }
 }

@@ -2,6 +2,7 @@
 
 import * as path from '@std/path'
 import { z } from 'zod'
+import { match } from 'ts-pattern'
 import { Command, ValidationError } from '@cliffy/command'
 import { Table } from '@cliffy/table'
 import $ from 'dax'
@@ -101,9 +102,9 @@ await new Command()
   .option('-v, --verbose', 'include notes/contents of todo')
   .option('-f, --format <format:string>', 'output format: table, json, tsv', {
     default: 'table',
+    value: parseFormat,
   })
   .action(async (options) => {
-    const format = parseFormat(options.format)
     let todos = (await getAllItems()).filter((todo) => todo.status === 'incomplete')
 
     if (options.area) {
@@ -133,119 +134,122 @@ await new Command()
       todos = todos.filter((todo) => todo.modified && todo.modified >= cutoff)
     }
 
-    if (format === 'json') {
-      console.log(
-        JSON.stringify(
-          todos.map((todo) => ({
-            title: todo.title,
-            area: todo.area_title,
-            project: todo.project_title || null,
-            notes: todo.notes || null,
-            created: todo.created.toISOString().slice(0, 10),
-            modified: todo.modified?.toISOString().slice(0, 10) || null,
-            start: todo.start,
-            start_date: todo.start_date?.toISOString().slice(0, 10) || null,
-            deadline: todo.deadline?.toISOString().slice(0, 10) || null,
-          })),
-          null,
-          2,
-        ),
-      )
-      return
-    }
+    const showArea = !options.area
+    match(options.format)
+      .with('json', () => {
+        console.log(
+          JSON.stringify(
+            todos.map((todo) => ({
+              title: todo.title,
+              area: todo.area_title,
+              project: todo.project_title || null,
+              notes: todo.notes || null,
+              created: todo.created.toISOString().slice(0, 10),
+              modified: todo.modified?.toISOString().slice(0, 10) || null,
+              start: todo.start,
+              start_date: todo.start_date?.toISOString().slice(0, 10) || null,
+              deadline: todo.deadline?.toISOString().slice(0, 10) || null,
+            })),
+            null,
+            2,
+          ),
+        )
+      })
+      .with('tsv', () => {
+        const headers = [
+          'created',
+          ...(showArea ? ['area'] : []),
+          'project',
+          'title',
+          'scheduled',
+          'deadline',
+        ]
+        const rows = todos.map((todo) => [
+          todo.created.toISOString().slice(0, 10),
+          ...(showArea ? [todo.area_title] : []),
+          todo.project_title,
+          todo.title,
+          todo.start_date?.toISOString().slice(0, 10),
+          todo.deadline?.toISOString().slice(0, 10),
+        ])
+        renderTsv(headers, rows)
+      })
+      .with('table', () => {
+        if (options.verbose) {
+          todos.forEach((todo, i) => {
+            const created = todo.created.toISOString().slice(0, 10)
+            const area = todo.area_title || ''
+            const project = todo.project_title ? ` > ${todo.project_title}` : ''
+            const location = area || project ? `[${area}${project}] ` : ''
 
-    if (format === 'tsv') {
-      const showArea = !options.area
-      const headers = [
-        'created',
-        ...(showArea ? ['area'] : []),
-        'project',
-        'title',
-        'scheduled',
-        'deadline',
-      ]
-      const rows = todos.map((todo) => [
-        todo.created.toISOString().slice(0, 10),
-        ...(showArea ? [todo.area_title] : []),
-        todo.project_title,
-        todo.title,
-        todo.start_date?.toISOString().slice(0, 10),
-        todo.deadline?.toISOString().slice(0, 10),
-      ])
-      renderTsv(headers, rows)
-      return
-    }
-
-    if (options.verbose) {
-      todos.forEach((todo, i) => {
-        const created = todo.created.toISOString().slice(0, 10)
-        const area = todo.area_title || ''
-        const project = todo.project_title ? ` > ${todo.project_title}` : ''
-        const location = area || project ? `[${area}${project}] ` : ''
-
-        if (i > 0) console.log()
-        console.log(`${location}${todo.title}`)
-        const dates = [
-          `created: ${created}`,
-          todo.modified ? `modified: ${todo.modified.toISOString().slice(0, 10)}` : null,
-          todo.start !== 'Anytime' ? `when: ${todo.start}` : null,
-          todo.start_date
-            ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}`
-            : null,
-          todo.deadline ? `deadline: ${todo.deadline.toISOString().slice(0, 10)}` : null,
-        ].filter(Boolean)
-        console.log(`  ${dates.join(' | ')}`)
-        if (todo.notes) {
-          console.log(`  ${todo.notes.replace(/\n/g, '\n  ')}`)
+            if (i > 0) console.log()
+            console.log(`${location}${todo.title}`)
+            const dates = [
+              `created: ${created}`,
+              todo.modified
+                ? `modified: ${todo.modified.toISOString().slice(0, 10)}`
+                : null,
+              todo.start !== 'Anytime' ? `when: ${todo.start}` : null,
+              todo.start_date
+                ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}`
+                : null,
+              todo.deadline
+                ? `deadline: ${todo.deadline.toISOString().slice(0, 10)}`
+                : null,
+            ].filter(Boolean)
+            console.log(`  ${dates.join(' | ')}`)
+            if (todo.notes) {
+              console.log(`  ${todo.notes.replace(/\n/g, '\n  ')}`)
+            }
+          })
+        } else {
+          const headers = [
+            'created',
+            ...(showArea ? ['area'] : []),
+            'project',
+            'title',
+            'scheduled',
+            'deadline',
+          ]
+          const rows = todos.map((todo) => [
+            todo.created.toISOString().slice(0, 10),
+            ...(showArea ? [todo.area_title || ''] : []),
+            todo.project_title || '',
+            todo.title,
+            todo.start_date?.toISOString().slice(0, 10) || '',
+            todo.deadline?.toISOString().slice(0, 10) || '',
+          ])
+          new Table()
+            .header(headers)
+            .body(rows)
+            .border()
+            .maxColWidth(50)
+            .render()
         }
       })
-    } else {
-      const showArea = !options.area
-      const headers = [
-        'created',
-        ...(showArea ? ['area'] : []),
-        'project',
-        'title',
-        'scheduled',
-        'deadline',
-      ]
-      const rows = todos.map((todo) => [
-        todo.created.toISOString().slice(0, 10),
-        ...(showArea ? [todo.area_title || ''] : []),
-        todo.project_title || '',
-        todo.title,
-        todo.start_date?.toISOString().slice(0, 10) || '',
-        todo.deadline?.toISOString().slice(0, 10) || '',
-      ])
-      new Table()
-        .header(headers)
-        .body(rows)
-        .border()
-        .maxColWidth(50)
-        .render()
-    }
+      .exhaustive()
   })
   .reset()
   .command('areas')
   .description('lists all areas')
   .option('-f, --format <format:string>', 'output format: table, json, tsv', {
     default: 'table',
+    value: parseFormat,
   })
-  .action(async (options) => {
-    const format = parseFormat(options.format)
+  .action(async ({ format }) => {
     const todos = await getAllItems()
     const areas = [...new Set(todos.map((t) => t.area_title))].filter(Boolean).sort()
-    if (format === 'json') {
-      console.log(JSON.stringify(areas, null, 2))
-    } else if (format === 'tsv') {
-      renderTsv(['area'], areas.map((a) => [a]))
-    } else {
-      new Table()
-        .header(['area'])
-        .body(areas.map((a) => [a]))
-        .padding(1)
-        .render()
-    }
+    match(format)
+      .with('json', () => console.log(JSON.stringify(areas, null, 2)))
+      .with('tsv', () => renderTsv(['area'], areas.map((a) => [a])))
+      .with('table', () => {
+        new Table()
+          .header(['area'])
+          .body(areas.map((a) => [a]))
+          .padding(1)
+          .render()
+      })
+      .exhaustive()
   })
   .reset()
   .command('projects')
@@ -253,63 +257,63 @@ await new Command()
   .option('-a, --area <area:string>', 'filter by area name')
   .option('-f, --format <format:string>', 'output format: table, json, tsv', {
     default: 'table',
+    value: parseFormat,
   })
-  .action(async (options) => {
-    const format = parseFormat(options.format)
+  .action(async ({ area, format }) => {
     let projects = (await getProjects()).filter((p) => p.status === 'incomplete')
-    if (options.area) {
+    if (area) {
       projects = projects.filter(
-        (p) => p.area_title.toLowerCase() === options.area!.toLowerCase(),
+        (p) => p.area_title.toLowerCase() === area!.toLowerCase(),
       )
     }
     projects.sort((a, b) =>
       `${a.area_title}${a.title}`.localeCompare(`${b.area_title}${b.title}`)
     )
     const fmtDate = (d: Date | null) => d?.toISOString().slice(0, 10) ?? null
-    if (format === 'json') {
-      console.log(JSON.stringify(
-        projects.map((p) => ({
-          area: p.area_title,
-          project: p.title,
-          start: p.start,
-          start_date: fmtDate(p.start_date),
-          deadline: fmtDate(p.deadline),
-          created: fmtDate(p.created),
-        })),
-        null,
-        2,
-      ))
-    } else if (format === 'tsv') {
-      renderTsv(
-        ['area', 'project', 'when', 'start_date', 'deadline', 'created'],
-        projects.map((
-          p,
-        ) => [
-          p.area_title,
-          p.title,
-          p.start,
-          fmtDate(p.start_date),
-          fmtDate(p.deadline),
-          fmtDate(p.created),
-        ]),
-      )
-    } else {
-      new Table()
-        .header(['area', 'project', 'when', 'start_date', 'deadline', 'created'])
-        .body(
-          projects.map((
-            p,
-          ) => [
+    match(format)
+      .with('json', () => {
+        console.log(JSON.stringify(
+          projects.map((p) => ({
+            area: p.area_title,
+            project: p.title,
+            start: p.start,
+            start_date: fmtDate(p.start_date),
+            deadline: fmtDate(p.deadline),
+            created: fmtDate(p.created),
+          })),
+          null,
+          2,
+        ))
+      })
+      .with('tsv', () => {
+        renderTsv(
+          ['area', 'project', 'when', 'start_date', 'deadline', 'created'],
+          projects.map((p) => [
             p.area_title,
             p.title,
             p.start,
-            fmtDate(p.start_date) ?? '',
-            fmtDate(p.deadline) ?? '',
-            fmtDate(p.created) ?? '',
+            fmtDate(p.start_date),
+            fmtDate(p.deadline),
+            fmtDate(p.created),
           ]),
         )
-        .padding(1)
-        .render()
-    }
+      })
+      .with('table', () => {
+        new Table()
+          .header(['area', 'project', 'when', 'start_date', 'deadline', 'created'])
+          .body(
+            projects.map((p) => [
+              p.area_title,
+              p.title,
+              p.start,
+              fmtDate(p.start_date) ?? '',
+              fmtDate(p.deadline) ?? '',
+              fmtDate(p.created) ?? '',
+            ]),
+          )
+          .padding(1)
+          .render()
+      })
+      .exhaustive()
   })
   .parse(Deno.args)

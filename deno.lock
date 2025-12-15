@@ -22,6 +22,7 @@
     "jsr:@std/text@~1.0.7": "1.0.16",
     "npm:dayjs@^1.11.18": "1.11.18",
     "npm:memoize@^10.1.0": "10.1.0",
+    "npm:ts-pattern@^5.9.0": "5.9.0",
     "npm:zod@^4.1.12": "4.1.12"
   },
   "jsr": {
@@ -122,6 +123,9 @@
     },
     "mimic-function@5.0.1": {
       "integrity": "sha512-VP79XUPxV2CigYP3jWwAUFSku2aKqBH7uTAapFWCBqutsbmDo96KY5o8uh6U+/YSIn5OxJnXp73beVkpqMIGhA=="
+    },
+    "ts-pattern@5.9.0": {
+      "integrity": "sha512-6s5V71mX8qBUmlgbrfL33xDUwO0fq48rxAu2LBE11WBeGdpCPOsXksQbZJHvHwhrd3QjUusd3mAOM5Gg0mFBLg=="
     },
     "zod@4.1.12": {
       "integrity": "sha512-JInaHOamG8pt5+Ey8kGmdcAcg3OL9reK8ltczgHTAwNhMys/6ThXHityHxVV2p3fkw/c+MAvBHFVYHFZDmjMCQ=="
@@ -603,6 +607,7 @@
       "jsr:@std/path@^1.0.8",
       "npm:dayjs@^1.11.18",
       "npm:memoize@^10.1.0",
+      "npm:ts-pattern@^5.9.0",
       "npm:zod@^4.1.12"
     ]
   }
