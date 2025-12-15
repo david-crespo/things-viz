@@ -54,11 +54,15 @@ const allItemsSchema = z.array(z.object({
 
 export const NO_AREA = 'No area'
 
-export async function getAllItems() {
-  const parsedItems = allItemsSchema.parse(await $`things-cli -j all`.json())
+async function getParsedItems() {
+  return allItemsSchema.parse(await $`things-cli -j all`.json())
     // No Area is projects, Areas is areas, Today is redundant -- items appear elsewhere
     .filter((i) => ['Upcoming', 'Anytime', 'Someday', 'Logbook'].includes(i.title))
     .flatMap((x) => x.items)
+}
+
+export async function getAllItems() {
+  const parsedItems = await getParsedItems()
 
   const projectAreas = Object.fromEntries(
     parsedItems
@@ -91,4 +95,20 @@ export async function getAllItems() {
           : NO_AREA),
     }
   })
+}
+
+export async function getProjects() {
+  const parsedItems = await getParsedItems()
+  return parsedItems
+    .filter((i) => i.type === 'project')
+    .map((p) => ({
+      uuid: p.uuid,
+      title: p.title,
+      status: p.status,
+      area_title: p.area_title ?? NO_AREA,
+      start: p.start,
+      start_date: p.start_date ? new Date(p.start_date) : null,
+      deadline: p.deadline ? new Date(p.deadline) : null,
+      created: new Date(p.created),
+    }))
 }
