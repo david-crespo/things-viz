@@ -1,7 +1,8 @@
 #!/usr/bin/env deno run --allow-net --allow-env --allow-read --allow-write --allow-run=things-cli,open,npm
 
 import * as path from '@std/path'
-import { Command } from '@cliffy/command'
+import { z } from 'zod'
+import { Command, ValidationError } from '@cliffy/command'
 import { Table } from '@cliffy/table'
 import $ from 'dax'
 
@@ -15,7 +16,15 @@ function relToAbs(relPath: string) {
 
 if (!import.meta.main) Deno.exit()
 
-type Format = 'table' | 'json' | 'tsv'
+const Format = z.enum(['table', 'json', 'tsv'])
+
+function parseFormat(format: string) {
+  const result = Format.safeParse(format)
+  if (!result.success) {
+    throw new ValidationError(`Invalid format argument '${format}'`)
+  }
+  return result.data
+}
 
 function renderCountsTable(counts: Record<string, unknown>[]) {
   if (counts.length === 0) return
@@ -94,7 +103,7 @@ await new Command()
     default: 'table',
   })
   .action(async (options) => {
-    const format = options.format as Format
+    const format = parseFormat(options.format)
     let todos = (await getAllItems()).filter((todo) => todo.status === 'incomplete')
 
     if (options.area) {
@@ -223,7 +232,7 @@ await new Command()
     default: 'table',
   })
   .action(async (options) => {
-    const format = options.format as Format
+    const format = parseFormat(options.format)
     const todos = await getAllItems()
     const areas = [...new Set(todos.map((t) => t.area_title))].filter(Boolean).sort()
     if (format === 'json') {
@@ -246,7 +255,7 @@ await new Command()
     default: 'table',
   })
   .action(async (options) => {
-    const format = options.format as Format
+    const format = parseFormat(options.format)
     let projects = (await getProjects()).filter((p) => p.status === 'incomplete')
     if (options.area) {
       projects = projects.filter(
