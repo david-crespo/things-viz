@@ -244,8 +244,8 @@ await new Command()
   .reset()
   .command('areas')
   .description('lists all areas')
-  .option('-f, --format <format:string>', 'output format: table, json, tsv', {
-    default: 'table',
+  .option('-f, --format <format:string>', 'output format: pretty, table, json, tsv', {
+    default: 'pretty',
     value: parseFormat,
   })
   .action(async ({ format }) => {
@@ -270,8 +270,8 @@ await new Command()
   .option('-a, --area <area:string>', 'filter by area name')
   .option('-c, --completed', 'show only completed projects')
   .option('--all', 'show all projects regardless of status')
-  .option('-f, --format <format:string>', 'output format: table, json, tsv', {
-    default: 'table',
+  .option('-f, --format <format:string>', 'output format: pretty, table, json, tsv', {
+    default: 'pretty',
     value: parseFormat,
   })
   .action(async ({ area, completed, all, format }) => {
@@ -317,6 +317,16 @@ await new Command()
             fmtDate(p.created),
           ]),
         )
+      })
+      .with('pretty', () => {
+        projects.forEach((p) => {
+          const dates = [
+            fmtDate(p.start_date) ? `scheduled: ${fmtDate(p.start_date)}` : null,
+            fmtDate(p.deadline) ? `deadline: ${fmtDate(p.deadline)}` : null,
+          ].filter(Boolean)
+          const dateSuffix = dates.length ? ` (${dates.join(' | ')})` : ''
+          console.log(`[${p.area_title}] ${p.title}${dateSuffix}`)
+        })
       })
       .with('table', () => {
         new Table()
