@@ -17,7 +17,7 @@ function relToAbs(relPath: string) {
 
 if (!import.meta.main) Deno.exit()
 
-const Format = z.enum(['table', 'json', 'tsv', 'pretty'])
+const Format = z.enum(['json', 'tsv', 'pretty', 'short'])
 
 function parseFormat(format: string) {
   const result = Format.safeParse(format)
@@ -79,17 +79,11 @@ await new Command()
     if (area) {
       todos = todos.filter((todo) => todo.area_title.toLowerCase() === area.toLowerCase())
     }
-    new Table()
-      .header(['date', 'project', 'title'])
-      .body(
-        todos.slice(0, 220).map((todo) => [
-          todo.stop_date?.toISOString().slice(0, 10) ?? '',
-          todo.project_title || '',
-          todo.title,
-        ]),
-      )
-      .padding(1)
-      .render()
+    todos.slice(0, 220).forEach((todo) => {
+      const date = todo.stop_date?.toISOString().slice(0, 10) ?? ''
+      const project = todo.project_title ? `[${todo.project_title}] ` : ''
+      console.log(`${date} ${project}${todo.title}`)
+    })
   })
   .reset()
   .command('todo')
@@ -101,8 +95,8 @@ await new Command()
   .option('-r, --recent <days:integer>', 'only show items modified in last N days')
   .option('-c, --completed', 'show only completed items')
   .option('--all', 'show all items regardless of status')
-  .option('-f, --format <format:string>', 'output format: pretty, table, json, tsv', {
-    default: 'pretty',
+  .option('-f, --format <format:string>', 'output format: short, pretty, json, tsv', {
+    default: 'short',
     value: parseFormat,
   })
   .action(async (options) => {
@@ -183,6 +177,21 @@ await new Command()
         ])
         renderTsv(headers, rows)
       })
+      .with('short', () => {
+        todos.forEach((todo) => {
+          const area = todo.area_title || ''
+          const project = todo.project_title ? ` > ${todo.project_title}` : ''
+          const heading = todo.heading_title ? ` > ${todo.heading_title}` : ''
+          const location = area || project ? `[${area}${project}${heading}] ` : ''
+          const dates = [
+            todo.start !== 'Anytime' ? todo.start.toLowerCase() : null,
+            todo.start_date ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}` : null,
+            todo.deadline ? `deadline: ${todo.deadline.toISOString().slice(0, 10)}` : null,
+          ].filter(Boolean)
+          const dateSuffix = dates.length ? ` (${dates.join(', ')})` : ''
+          console.log(`${location}${todo.title}${dateSuffix}`)
+        })
+      })
       .with('pretty', () => {
         todos.forEach((todo, i) => {
           const created = todo.created.toISOString().slice(0, 10)
@@ -214,38 +223,12 @@ await new Command()
           }
         })
       })
-      .with('table', () => {
-        const headers = [
-          'created',
-          ...(showArea ? ['area'] : []),
-          'project',
-          'heading',
-          'title',
-          'scheduled',
-          'deadline',
-        ]
-        const rows = todos.map((todo) => [
-          todo.created.toISOString().slice(0, 10),
-          ...(showArea ? [todo.area_title || ''] : []),
-          todo.project_title || '',
-          todo.heading_title || '',
-          todo.title,
-          todo.start_date?.toISOString().slice(0, 10) || '',
-          todo.deadline?.toISOString().slice(0, 10) || '',
-        ])
-        new Table()
-          .header(headers)
-          .body(rows)
-          .border()
-          .maxColWidth(50)
-          .render()
-      })
       .exhaustive()
   })
   .reset()
   .command('areas')
   .description('lists all areas')
-  .option('-f, --format <format:string>', 'output format: pretty, table, json, tsv', {
+  .option('-f, --format <format:string>', 'output format: pretty, json, tsv', {
     default: 'pretty',
     value: parseFormat,
   })
@@ -254,14 +237,7 @@ await new Command()
     match(format)
       .with('json', () => console.log(JSON.stringify(areas, null, 2)))
       .with('tsv', () => renderTsv(['area'], areas.map((a) => [a])))
-      .with('pretty', () => areas.forEach((a) => console.log(a)))
-      .with('table', () => {
-        new Table()
-          .header(['area'])
-          .body(areas.map((a) => [a]))
-          .padding(1)
-          .render()
-      })
+      .with('short', 'pretty', () => areas.forEach((a) => console.log(a)))
       .exhaustive()
   })
   .reset()
@@ -270,7 +246,7 @@ await new Command()
   .option('-a, --area <area:string>', 'filter by area name')
   .option('-c, --completed', 'show only completed projects')
   .option('--all', 'show all projects regardless of status')
-  .option('-f, --format <format:string>', 'output format: pretty, table, json, tsv', {
+  .option('-f, --format <format:string>', 'output format: pretty, json, tsv', {
     default: 'pretty',
     value: parseFormat,
   })
@@ -318,7 +294,7 @@ await new Command()
           ]),
         )
       })
-      .with('pretty', () => {
+      .with('short', 'pretty', () => {
         projects.forEach((p) => {
           const dates = [
             fmtDate(p.start_date) ? `scheduled: ${fmtDate(p.start_date)}` : null,
@@ -327,22 +303,6 @@ await new Command()
           const dateSuffix = dates.length ? ` (${dates.join(' | ')})` : ''
           console.log(`[${p.area_title}] ${p.title}${dateSuffix}`)
         })
-      })
-      .with('table', () => {
-        new Table()
-          .header(['area', 'project', 'when', 'start_date', 'deadline', 'created'])
-          .body(
-            projects.map((p) => [
-              p.area_title,
-              p.title,
-              p.start,
-              fmtDate(p.start_date) ?? '',
-              fmtDate(p.deadline) ?? '',
-              fmtDate(p.created) ?? '',
-            ]),
-          )
-          .padding(1)
-          .render()
       })
       .exhaustive()
   })
