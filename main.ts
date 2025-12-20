@@ -8,7 +8,7 @@ import { Table } from '@cliffy/table'
 import $ from 'dax'
 
 import { getCounts, NO_AREA } from './viz.ts'
-import { getAllItems, getProjects } from './data.ts'
+import { getAllItems, getAreas, getProjects } from './data.ts'
 
 function relToAbs(relPath: string) {
   const currFile = path.fromFileUrl(import.meta.url)
@@ -106,7 +106,8 @@ await new Command()
     value: parseFormat,
   })
   .action(async (options) => {
-    let todos = await getAllItems()
+    const includeChecklists = options.format === 'pretty'
+    let todos = await getAllItems({ includeChecklists })
     if (options.completed) {
       todos = todos.filter((todo) => todo.status === 'completed')
     } else if (!options.all) {
@@ -205,7 +206,7 @@ await new Command()
           if (todo.notes) {
             console.log(`  ${todo.notes.replace(/\n/g, '\n  ')}`)
           }
-          if (todo.checklist?.length) {
+          if (Array.isArray(todo.checklist)) {
             for (const item of todo.checklist) {
               const mark = item.status === 'completed' ? '✓' : '○'
               console.log(`  ${mark} ${item.title}`)
@@ -249,8 +250,7 @@ await new Command()
     value: parseFormat,
   })
   .action(async ({ format }) => {
-    const todos = await getAllItems()
-    const areas = [...new Set(todos.map((t) => t.area_title))].filter(Boolean).sort()
+    const areas = await getAreas()
     match(format)
       .with('json', () => console.log(JSON.stringify(areas, null, 2)))
       .with('tsv', () => renderTsv(['area'], areas.map((a) => [a])))

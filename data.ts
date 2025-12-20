@@ -22,7 +22,8 @@ const itemShared = z.object({
   deadline: z.string().nullable(),
   stop_date: z.string().nullable(),
   notes: z.string().optional(),
-  checklist: z.array(checklistItemSchema).optional(),
+  // without -r flag, checklist is a boolean; with -r it's an array of items
+  checklist: z.union([z.boolean(), z.array(checklistItemSchema)]).optional(),
 })
 
 const todoSchema = z.object({
@@ -65,16 +66,19 @@ const allItemsSchema = z.array(z.object({
 
 export const NO_AREA = 'No area'
 
-async function getParsedItems() {
-  // -r (recursive) includes checklist items
-  return allItemsSchema.parse(await $`things-cli -j -r all`.json())
+async function getParsedItems(includeChecklists: boolean) {
+  // -r (recursive) includes checklist items but is slow
+  const cmd = includeChecklists
+    ? $`things-cli -j -r all`
+    : $`things-cli -j all`
+  return allItemsSchema.parse(await cmd.json())
     // No Area is projects, Areas is areas, Today is redundant -- items appear elsewhere
     .filter((i) => ['Upcoming', 'Anytime', 'Someday', 'Logbook'].includes(i.title))
     .flatMap((x) => x.items)
 }
 
-export async function getAllItems() {
-  const parsedItems = await getParsedItems()
+export async function getAllItems(opts: { includeChecklists?: boolean } = {}) {
+  const parsedItems = await getParsedItems(opts.includeChecklists ?? false)
 
   const projectAreas = Object.fromEntries(
     parsedItems
@@ -117,18 +121,25 @@ export async function getAllItems() {
   })
 }
 
+const areaListSchema = z.array(z.object({ type: z.literal('area'), uuid: z.string(), title: z.string() }))
+
+export async function getAreas() {
+  const areas = areaListSchema.parse(await $`things-cli -j areas`.json())
+  return areas.map((a) => a.title).sort()
+}
+
+const projectListSchema = z.array(projectSchema.merge(itemShared))
+
 export async function getProjects() {
-  const parsedItems = await getParsedItems()
-  return parsedItems
-    .filter((i) => i.type === 'project')
-    .map((p) => ({
-      uuid: p.uuid,
-      title: p.title,
-      status: p.status,
-      area_title: p.area_title ?? NO_AREA,
-      start: p.start,
-      start_date: p.start_date ? new Date(p.start_date) : null,
-      deadline: p.deadline ? new Date(p.deadline) : null,
-      created: new Date(p.created),
-    }))
+  const projects = projectListSchema.parse(await $`things-cli -j projects`.json())
+  return projects.map((p) => ({
+    uuid: p.uuid,
+    title: p.title,
+    status: p.status,
+    area_title: p.area_title ?? NO_AREA,
+    start: p.start,
+    start_date: p.start_date ? new Date(p.start_date) : null,
+    deadline: p.deadline ? new Date(p.deadline) : null,
+    created: new Date(p.created),
+  }))
 }
