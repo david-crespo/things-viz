@@ -93,19 +93,26 @@ await new Command()
   })
   .reset()
   .command('todo')
-  .description('lists incomplete items')
+  .description('lists items')
   .option('-a, --area <area:string>', 'filter by area name')
   .option('-p, --project <project:string>', 'filter by project name')
   .option('-s, --search <text:string>', 'search in title and notes')
   .option('-d, --deadline', 'only show items with deadlines')
   .option('-r, --recent <days:integer>', 'only show items modified in last N days')
+  .option('-c, --completed', 'show only completed items')
+  .option('--all', 'show all items regardless of status')
   .option('-v, --verbose', 'include notes/contents of todo')
   .option('-f, --format <format:string>', 'output format: table, json, tsv', {
     default: 'table',
     value: parseFormat,
   })
   .action(async (options) => {
-    let todos = (await getAllItems()).filter((todo) => todo.status === 'incomplete')
+    let todos = await getAllItems()
+    if (options.completed) {
+      todos = todos.filter((todo) => todo.status === 'completed')
+    } else if (!options.all) {
+      todos = todos.filter((todo) => todo.status === 'incomplete')
+    }
 
     if (options.area) {
       todos = todos.filter(
@@ -201,6 +208,12 @@ await new Command()
             if (todo.notes) {
               console.log(`  ${todo.notes.replace(/\n/g, '\n  ')}`)
             }
+            if (todo.checklist?.length) {
+              for (const item of todo.checklist) {
+                const mark = item.status === 'completed' ? '✓' : '○'
+                console.log(`  ${mark} ${item.title}`)
+              }
+            }
           })
         } else {
           const headers = [
@@ -253,14 +266,21 @@ await new Command()
   })
   .reset()
   .command('projects')
-  .description('lists all incomplete projects')
+  .description('lists projects')
   .option('-a, --area <area:string>', 'filter by area name')
+  .option('-c, --completed', 'show only completed projects')
+  .option('--all', 'show all projects regardless of status')
   .option('-f, --format <format:string>', 'output format: table, json, tsv', {
     default: 'table',
     value: parseFormat,
   })
-  .action(async ({ area, format }) => {
-    let projects = (await getProjects()).filter((p) => p.status === 'incomplete')
+  .action(async ({ area, completed, all, format }) => {
+    let projects = await getProjects()
+    if (completed) {
+      projects = projects.filter((p) => p.status === 'completed')
+    } else if (!all) {
+      projects = projects.filter((p) => p.status === 'incomplete')
+    }
     if (area) {
       projects = projects.filter(
         (p) => p.area_title.toLowerCase() === area!.toLowerCase(),

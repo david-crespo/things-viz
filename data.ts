@@ -1,6 +1,16 @@
 import $ from 'dax'
 import { z } from 'zod'
 
+const checklistItemSchema = z.object({
+  type: z.literal('checklist-item'),
+  uuid: z.string(),
+  title: z.string(),
+  status: z.enum(['incomplete', 'completed', 'canceled']),
+  created: z.string().nullable(),
+  modified: z.string().nullable(),
+  stop_date: z.string().nullable(),
+})
+
 const itemShared = z.object({
   uuid: z.string(),
   title: z.string(),
@@ -12,6 +22,7 @@ const itemShared = z.object({
   deadline: z.string().nullable(),
   stop_date: z.string().nullable(),
   notes: z.string().optional(),
+  checklist: z.array(checklistItemSchema).optional(),
 })
 
 const todoSchema = z.object({
@@ -55,7 +66,8 @@ const allItemsSchema = z.array(z.object({
 export const NO_AREA = 'No area'
 
 async function getParsedItems() {
-  return allItemsSchema.parse(await $`things-cli -j all`.json())
+  // -r (recursive) includes checklist items
+  return allItemsSchema.parse(await $`things-cli -j -r all`.json())
     // No Area is projects, Areas is areas, Today is redundant -- items appear elsewhere
     .filter((i) => ['Upcoming', 'Anytime', 'Someday', 'Logbook'].includes(i.title))
     .flatMap((x) => x.items)
