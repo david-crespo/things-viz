@@ -167,6 +167,7 @@ await new Command()
           'created',
           ...(showArea ? ['area'] : []),
           'project',
+          'heading',
           'title',
           'scheduled',
           'deadline',
@@ -175,6 +176,7 @@ await new Command()
           todo.created.toISOString().slice(0, 10),
           ...(showArea ? [todo.area_title] : []),
           todo.project_title,
+          todo.heading_title,
           todo.title,
           todo.start_date?.toISOString().slice(0, 10),
           todo.deadline?.toISOString().slice(0, 10),
@@ -187,7 +189,8 @@ await new Command()
             const created = todo.created.toISOString().slice(0, 10)
             const area = todo.area_title || ''
             const project = todo.project_title ? ` > ${todo.project_title}` : ''
-            const location = area || project ? `[${area}${project}] ` : ''
+            const heading = todo.heading_title ? ` > ${todo.heading_title}` : ''
+            const location = area || project ? `[${area}${project}${heading}] ` : ''
 
             if (i > 0) console.log()
             console.log(`${location}${todo.title}`)
@@ -220,6 +223,7 @@ await new Command()
             'created',
             ...(showArea ? ['area'] : []),
             'project',
+            'heading',
             'title',
             'scheduled',
             'deadline',
@@ -228,6 +232,7 @@ await new Command()
             todo.created.toISOString().slice(0, 10),
             ...(showArea ? [todo.area_title || ''] : []),
             todo.project_title || '',
+            todo.heading_title || '',
             todo.title,
             todo.start_date?.toISOString().slice(0, 10) || '',
             todo.deadline?.toISOString().slice(0, 10) || '',

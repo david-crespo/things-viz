@@ -90,7 +90,13 @@ export async function getAllItems() {
       ) => [h.uuid, projectAreas[h.project]]),
   )
 
-  // parse dates and make sure everything has area_title
+  const headingProjects = Object.fromEntries(
+    parsedItems
+      .filter((i) => i.type === 'heading')
+      .map((h) => [h.uuid, h.project_title]),
+  )
+
+  // parse dates and make sure everything has area_title and project_title
   return parsedItems.filter((i) => i.type === 'to-do').map((item) => {
     return {
       ...item,
@@ -99,6 +105,8 @@ export async function getAllItems() {
       start_date: item.start_date ? new Date(item.start_date) : null,
       deadline: item.deadline ? new Date(item.deadline) : null,
       stop_date: item.stop_date ? new Date(item.stop_date) : null,
+      project_title: item.project_title ||
+        (item.heading ? headingProjects[item.heading] : undefined),
       area_title: item.area_title ||
         (item.project
           ? projectAreas[item.project]!
