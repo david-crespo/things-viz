@@ -10,7 +10,7 @@ const items = todos.map((i) => {
   const complete = !!i.stop_date
   const date = dateToStr(i.stop_date || i.created)
   return [i.uuid, complete ? '[x]' : '[ ]', date, i.title]
-}).sort(([a_id, a_complete, a_date], [b_id, b_complete, b_date]) => {
+}).sort(([_a_id, a_complete, a_date], [_b_id, b_complete, b_date]) => {
   // sort open items last, and then by most recent last within complete
   if (a_complete === b_complete) return -1 * a_date.localeCompare(b_date)
   return a_complete.localeCompare(b_complete)

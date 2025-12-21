@@ -68,9 +68,7 @@ export const NO_AREA = 'No area'
 
 async function getParsedItems(includeChecklists: boolean) {
   // -r (recursive) includes checklist items but is slow
-  const cmd = includeChecklists
-    ? $`things-cli -j -r all`
-    : $`things-cli -j all`
+  const cmd = includeChecklists ? $`things-cli -j -r all` : $`things-cli -j all`
   return allItemsSchema.parse(await cmd.json())
     // No Area is projects, Areas is areas, Today is redundant -- items appear elsewhere
     .filter((i) => ['Upcoming', 'Anytime', 'Someday', 'Logbook'].includes(i.title))
@@ -121,7 +119,9 @@ export async function getAllItems(opts: { includeChecklists?: boolean } = {}) {
   })
 }
 
-const areaListSchema = z.array(z.object({ type: z.literal('area'), uuid: z.string(), title: z.string() }))
+const areaListSchema = z.array(
+  z.object({ type: z.literal('area'), uuid: z.string(), title: z.string() }),
+)
 
 export async function getAreas() {
   const areas = areaListSchema.parse(await $`things-cli -j areas`.json())
@@ -179,6 +179,7 @@ export async function getViewItems(view: ViewName) {
       deadline: item.deadline ? new Date(item.deadline) : null,
       stop_date: item.stop_date ? new Date(item.stop_date) : null,
       project_title: item.project_title,
-      area_title: item.area_title ?? (item.project ? projectAreas[item.project] : undefined) ?? NO_AREA,
+      area_title: item.area_title ??
+        (item.project ? projectAreas[item.project] : undefined) ?? NO_AREA,
     }))
 }

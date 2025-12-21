@@ -8,7 +8,7 @@ import { Table } from '@cliffy/table'
 import $ from 'dax'
 
 import { getCounts, NO_AREA } from './viz.ts'
-import { getAllItems, getAreas, getProjects, getViewItems, type ViewName, type Todo } from './data.ts'
+import { getAllItems, getAreas, getProjects, getViewItems, type Todo } from './data.ts'
 
 function relToAbs(relPath: string) {
   const currFile = path.fromFileUrl(import.meta.url)
@@ -93,7 +93,9 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
         const location = area || project ? `[${area}${project}${heading}] ` : ''
         const dates = [
           todo.start !== 'Anytime' ? todo.start.toLowerCase() : null,
-          todo.start_date ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}` : null,
+          todo.start_date
+            ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}`
+            : null,
           todo.deadline ? `deadline: ${todo.deadline.toISOString().slice(0, 10)}` : null,
         ].filter(Boolean)
         const dateSuffix = dates.length ? ` (${dates.join(', ')})` : ''
@@ -114,7 +116,9 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
           `created: ${created}`,
           todo.modified ? `modified: ${todo.modified.toISOString().slice(0, 10)}` : null,
           todo.start !== 'Anytime' ? `when: ${todo.start}` : null,
-          todo.start_date ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}` : null,
+          todo.start_date
+            ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}`
+            : null,
           todo.deadline ? `deadline: ${todo.deadline.toISOString().slice(0, 10)}` : null,
         ].filter(Boolean)
         console.log(`  ${dates.join(' | ')}`)
