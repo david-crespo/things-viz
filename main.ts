@@ -1,4 +1,4 @@
-#!/usr/bin/env deno run --allow-net --allow-env --allow-read --allow-write --allow-run=things-cli,open,npm
+#!/usr/bin/env deno run --allow-net --allow-env --allow-read --allow-write --allow-run=uv,open,npm
 
 import * as path from '@std/path'
 import { z } from 'zod'
@@ -8,7 +8,14 @@ import { Table } from '@cliffy/table'
 import $ from 'dax'
 
 import { getCounts, NO_AREA } from './viz.ts'
-import { getAllItems, getAreas, getItemByUuid, getProjects, getViewItems, type Todo } from './data.ts'
+import {
+  getAllItems,
+  getAreas,
+  getItemByUuid,
+  getProjects,
+  getViewItems,
+  type Todo,
+} from './data.ts'
 
 function relToAbs(relPath: string) {
   const currFile = path.fromFileUrl(import.meta.url)
@@ -197,11 +204,10 @@ await new Command()
   })
   .action(async (options) => {
     const includeChecklists = options.format === 'pretty'
-    let todos = await getAllItems({ includeChecklists })
+    const incompleteOnly = !options.completed && !options.all
+    let todos = await getAllItems({ includeChecklists, incompleteOnly })
     if (options.completed) {
       todos = todos.filter((todo) => todo.status === 'completed')
-    } else if (!options.all) {
-      todos = todos.filter((todo) => todo.status === 'incomplete')
     }
 
     if (options.area) {

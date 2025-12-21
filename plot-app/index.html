@@ -1,28 +1,32 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>things-viz</title>
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>things-viz</title>
-</head>
+  <body>
+    <div style="margin: 2.5rem">
+      <input
+        type="date"
+        name="start"
+        value="2024-03-09"
+        min="2018-01-01"
+        max="2024-12-31"
+      />
+      <input type="date" name="end" value="2024-04-09" min="2018-01-01" max="2024-12-31" />
+      <button onclick="render()" style="margin-right: 2rem">Plot</button>
+      <button onclick="renderLast(30)">-30d</button>
+      <button onclick="renderLast(60)">-60d</button>
+      <button onclick="renderLast(180)">-6m</button>
+      <button onclick="renderLast(365)">-1y</button>
+      <button onclick="renderLast(730)">-2y</button>
+    </div>
 
-<body>
-  <div style="margin: 2.5rem">
-    <input type="date" name="start" value="2024-03-09" min="2018-01-01" max="2024-12-31" />
-    <input type="date" name="end" value="2024-04-09" min="2018-01-01" max="2024-12-31" />
-    <button onclick="render()" style="margin-right: 2rem">Plot</button>
-    <button onclick="renderLast(30)">-30d</button>
-    <button onclick="renderLast(60)">-60d</button>
-    <button onclick="renderLast(180)">-6m</button>
-    <button onclick="renderLast(365)">-1y</button>
-    <button onclick="renderLast(730)">-2y</button>
-  </div>
+    <div id="plots"></div>
 
-  <div id="plots"></div>
-
-  <script type="module" src="/src/main.ts"></script>
-</body>
-
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>

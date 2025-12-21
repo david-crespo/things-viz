@@ -1,190 +1,120 @@
+import * as path from '@std/path'
 import $ from 'dax'
 import { z } from 'zod'
+
+const scriptPath = path.join(
+  path.dirname(path.fromFileUrl(import.meta.url)),
+  'things_query.py',
+)
+
+const status = z.enum(['incomplete', 'completed', 'canceled'])
+const dateStr = z.string().nullable()
 
 const checklistItemSchema = z.object({
   type: z.literal('checklist-item'),
   uuid: z.string(),
   title: z.string(),
-  status: z.enum(['incomplete', 'completed', 'canceled']),
+  status,
   created: z.string().nullable(),
   modified: z.string().nullable(),
-  stop_date: z.string().nullable(),
+  stop_date: dateStr,
 })
 
-const itemShared = z.object({
+const itemBase = z.object({
   uuid: z.string(),
   title: z.string(),
-  status: z.enum(['incomplete', 'completed', 'canceled']),
+  status,
   created: z.string(),
   modified: z.string().nullable(),
-  start: z.string(), // "Anytime", "Someday", "Upcoming", etc.
-  start_date: z.string().nullable(), // scheduled date
-  deadline: z.string().nullable(),
-  stop_date: z.string().nullable(),
+  start: z.string(),
+  start_date: dateStr,
+  deadline: dateStr,
+  stop_date: dateStr,
   notes: z.string().optional(),
-  // without -r flag, checklist is a boolean; with -r it's an array of items
-  checklist: z.union([z.boolean(), z.array(checklistItemSchema)]).optional(),
+  area: z.string().optional(),
+  area_title: z.string().nullable().optional(),
 })
 
-const todoSchema = z.object({
+const todoSchema = itemBase.extend({
   type: z.literal('to-do'),
-  heading: z.string().optional(),
-  heading_title: z.string().optional(),
+  checklist: z.union([z.boolean(), z.array(checklistItemSchema)]).optional(),
   project: z.string().optional(),
   project_title: z.string().optional(),
-  area: z.string().optional(),
-  area_title: z.string().optional(),
+  heading: z.string().optional(),
+  heading_title: z.string().optional(),
 })
 
-// projects are usually in areas but don't have to be
-const projectSchema = z.object({
-  type: z.literal('project'),
-  area: z.string().optional(), // a UUID
-  area_title: z.string().optional(),
-})
+const projectSchema = itemBase.extend({ type: z.literal('project') })
 
-// headings are always in projects
-const headingSchema = z.object({
-  type: z.literal('heading'),
-  project: z.string(), // a UUID
-  project_title: z.string(),
-})
-
-const itemSchema = z.discriminatedUnion('type', [
-  todoSchema.merge(itemShared),
-  projectSchema.merge(itemShared),
-  headingSchema.merge(itemShared),
-  // only one that doesn't use the shared thing
-  z.object({ type: z.literal('area'), uuid: z.string(), title: z.string() }),
-])
-
-/** An array of group objects */
-const allItemsSchema = z.array(z.object({
+const areaSchema = z.object({
+  type: z.literal('area'),
+  uuid: z.string(),
   title: z.string(),
-  items: z.array(itemSchema),
-}))
+})
+
+// get can return any item type
+const anyItemSchema = z.union([todoSchema, projectSchema, areaSchema])
 
 export const NO_AREA = 'No area'
 
-async function getParsedItems(includeChecklists: boolean) {
-  // -r (recursive) includes checklist items but is slow
-  const cmd = includeChecklists ? $`things-cli -j -r all` : $`things-cli -j all`
-  return allItemsSchema.parse(await cmd.json())
-    // No Area is projects, Areas is areas, Today is redundant -- items appear elsewhere
-    .filter((i) => ['Upcoming', 'Anytime', 'Someday', 'Logbook'].includes(i.title))
-    .flatMap((x) => x.items)
+function parseDate(s: string | null | undefined): Date | null {
+  if (!s) return null
+  return new Date(s.replace(' ', 'T'))
 }
 
-export async function getAllItems(opts: { includeChecklists?: boolean } = {}) {
-  const parsedItems = await getParsedItems(opts.includeChecklists ?? false)
-
-  const projectAreas = Object.fromEntries(
-    parsedItems
-      .filter((i) => i.type === 'project')
-      .map((p) => [p.uuid, p.area_title]),
-  )
-
-  // headings only exist in projects. to get the area you need to go through the project
-  const headingAreas = Object.fromEntries(
-    parsedItems
-      .filter((i) => i.type === 'heading').map((
-        h,
-      ) => [h.uuid, projectAreas[h.project]]),
-  )
-
-  const headingProjects = Object.fromEntries(
-    parsedItems
-      .filter((i) => i.type === 'heading')
-      .map((h) => [h.uuid, h.project_title]),
-  )
-
-  // parse dates and make sure everything has area_title and project_title
-  return parsedItems.filter((i) => i.type === 'to-do').map((item) => {
-    return {
-      ...item,
-      created: new Date(item.created),
-      modified: item.modified ? new Date(item.modified) : null,
-      start_date: item.start_date ? new Date(item.start_date) : null,
-      deadline: item.deadline ? new Date(item.deadline) : null,
-      stop_date: item.stop_date ? new Date(item.stop_date) : null,
-      project_title: item.project_title ||
-        (item.heading ? headingProjects[item.heading] : undefined),
-      area_title: item.area_title ||
-        (item.project
-          ? projectAreas[item.project]!
-          : item.heading
-          ? headingAreas[item.heading]!
-          : NO_AREA),
-    }
-  })
+function parseTodo(item: z.infer<typeof todoSchema>) {
+  return {
+    ...item,
+    created: parseDate(item.created)!,
+    modified: parseDate(item.modified),
+    start_date: parseDate(item.start_date),
+    deadline: parseDate(item.deadline),
+    stop_date: parseDate(item.stop_date),
+    area_title: item.area_title ?? NO_AREA,
+  }
 }
 
-const areaListSchema = z.array(
-  z.object({ type: z.literal('area'), uuid: z.string(), title: z.string() }),
-)
+export async function getAllItems(
+  opts: { includeChecklists?: boolean; incompleteOnly?: boolean } = {},
+) {
+  const args = ['todos']
+  if (opts.includeChecklists) args.push('--checklists')
+  if (opts.incompleteOnly) args.push('--incomplete')
+  const items = z.array(todoSchema).parse(await $`uv run ${scriptPath} ${args}`.json())
+  return items.map(parseTodo)
+}
 
 export async function getItemByUuid(uuid: string) {
-  const items = await getParsedItems(false)
-  return items.find((i) => i.uuid === uuid) ?? null
+  const result = await $`uv run ${scriptPath} get ${uuid}`.json()
+  if (!result) return null
+  return anyItemSchema.parse(result)
 }
 
 export async function getAreas() {
-  const areas = areaListSchema.parse(await $`things-cli -j areas`.json())
+  const areas = z.array(areaSchema).parse(await $`uv run ${scriptPath} areas`.json())
   return areas.map((a) => a.title).sort()
 }
 
-const projectListSchema = z.array(projectSchema.merge(itemShared))
-
 export async function getProjects() {
-  const projects = projectListSchema.parse(await $`things-cli -j projects`.json())
+  const projects = z.array(projectSchema).parse(
+    await $`uv run ${scriptPath} projects`.json(),
+  )
   return projects.map((p) => ({
     uuid: p.uuid,
     title: p.title,
     status: p.status,
     area_title: p.area_title ?? NO_AREA,
     start: p.start,
-    start_date: p.start_date ? new Date(p.start_date) : null,
-    deadline: p.deadline ? new Date(p.deadline) : null,
-    created: new Date(p.created),
+    start_date: parseDate(p.start_date),
+    deadline: parseDate(p.deadline),
+    created: parseDate(p.created)!,
   }))
 }
 
-// View commands (today, inbox, etc.) return a flat list that can include both todos and projects
-const viewItemSchema = z.discriminatedUnion('type', [
-  todoSchema.merge(itemShared),
-  projectSchema.merge(itemShared),
-])
-const viewItemListSchema = z.array(viewItemSchema)
-
-export type ViewName = 'today' | 'inbox' | 'anytime' | 'upcoming' | 'someday'
+type ViewName = 'today' | 'inbox' | 'anytime' | 'upcoming' | 'someday'
 export type Todo = Awaited<ReturnType<typeof getAllItems>>[number]
 
-/** Fetch items from a Things 3 view (today, inbox, anytime, upcoming, someday) */
 export async function getViewItems(view: ViewName) {
-  const [items, projects] = await Promise.all([
-    viewItemListSchema.parse(await $`things-cli -j ${view}`.json()),
-    getProjects(),
-  ])
-
-  // Build lookup from project UUID to area title
-  const projectAreas = Object.fromEntries(
-    projects.map((p) => [p.uuid, p.area_title]),
-  )
-
-  // Filter to only todos (exclude projects)
-  return items
-    .filter((item): item is z.infer<typeof todoSchema> & z.infer<typeof itemShared> =>
-      item.type === 'to-do'
-    )
-    .map((item) => ({
-      ...item,
-      created: new Date(item.created),
-      modified: item.modified ? new Date(item.modified) : null,
-      start_date: item.start_date ? new Date(item.start_date) : null,
-      deadline: item.deadline ? new Date(item.deadline) : null,
-      stop_date: item.stop_date ? new Date(item.stop_date) : null,
-      project_title: item.project_title,
-      area_title: item.area_title ??
-        (item.project ? projectAreas[item.project] : undefined) ?? NO_AREA,
-    }))
+  const items = z.array(todoSchema).parse(await $`uv run ${scriptPath} ${view}`.json())
+  return items.map(parseTodo)
 }
