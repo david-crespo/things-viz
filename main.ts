@@ -48,6 +48,7 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
       console.log(
         JSON.stringify(
           todos.map((todo) => ({
+            uuid: todo.uuid,
             title: todo.title,
             area: todo.area_title,
             project: todo.project_title || null,
