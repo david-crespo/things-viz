@@ -143,3 +143,42 @@ export async function getProjects() {
     created: new Date(p.created),
   }))
 }
+
+// View commands (today, inbox, etc.) return a flat list that can include both todos and projects
+const viewItemSchema = z.discriminatedUnion('type', [
+  todoSchema.merge(itemShared),
+  projectSchema.merge(itemShared),
+])
+const viewItemListSchema = z.array(viewItemSchema)
+
+export type ViewName = 'today' | 'inbox' | 'anytime' | 'upcoming' | 'someday'
+export type Todo = Awaited<ReturnType<typeof getAllItems>>[number]
+
+/** Fetch items from a Things 3 view (today, inbox, anytime, upcoming, someday) */
+export async function getViewItems(view: ViewName) {
+  const [items, projects] = await Promise.all([
+    viewItemListSchema.parse(await $`things-cli -j ${view}`.json()),
+    getProjects(),
+  ])
+
+  // Build lookup from project UUID to area title
+  const projectAreas = Object.fromEntries(
+    projects.map((p) => [p.uuid, p.area_title]),
+  )
+
+  // Filter to only todos (exclude projects)
+  return items
+    .filter((item): item is z.infer<typeof todoSchema> & z.infer<typeof itemShared> =>
+      item.type === 'to-do'
+    )
+    .map((item) => ({
+      ...item,
+      created: new Date(item.created),
+      modified: item.modified ? new Date(item.modified) : null,
+      start_date: item.start_date ? new Date(item.start_date) : null,
+      deadline: item.deadline ? new Date(item.deadline) : null,
+      stop_date: item.stop_date ? new Date(item.stop_date) : null,
+      project_title: item.project_title,
+      area_title: item.area_title ?? (item.project ? projectAreas[item.project] : undefined) ?? NO_AREA,
+    }))
+}

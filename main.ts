@@ -8,7 +8,7 @@ import { Table } from '@cliffy/table'
 import $ from 'dax'
 
 import { getCounts, NO_AREA } from './viz.ts'
-import { getAllItems, getAreas, getProjects } from './data.ts'
+import { getAllItems, getAreas, getProjects, getViewItems, type ViewName, type Todo } from './data.ts'
 
 function relToAbs(relPath: string) {
   const currFile = path.fromFileUrl(import.meta.url)
@@ -38,6 +38,97 @@ function renderTsv(headers: string[], rows: (string | null | undefined)[][]) {
   const escape = (v: string | null | undefined) => (v ?? '').replace(/[\t\n\r]/g, ' ')
   console.log(headers.join('\t'))
   rows.forEach((row) => console.log(row.map(escape).join('\t')))
+}
+
+type RenderFormat = z.infer<typeof Format>
+
+function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
+  match(format)
+    .with('json', () => {
+      console.log(
+        JSON.stringify(
+          todos.map((todo) => ({
+            title: todo.title,
+            area: todo.area_title,
+            project: todo.project_title || null,
+            notes: todo.notes || null,
+            created: todo.created.toISOString().slice(0, 10),
+            modified: todo.modified?.toISOString().slice(0, 10) || null,
+            start: todo.start,
+            start_date: todo.start_date?.toISOString().slice(0, 10) || null,
+            deadline: todo.deadline?.toISOString().slice(0, 10) || null,
+          })),
+          null,
+          2,
+        ),
+      )
+    })
+    .with('tsv', () => {
+      const headers = [
+        'created',
+        ...(showArea ? ['area'] : []),
+        'project',
+        'heading',
+        'title',
+        'scheduled',
+        'deadline',
+      ]
+      const rows = todos.map((todo) => [
+        todo.created.toISOString().slice(0, 10),
+        ...(showArea ? [todo.area_title] : []),
+        todo.project_title,
+        todo.heading_title,
+        todo.title,
+        todo.start_date?.toISOString().slice(0, 10),
+        todo.deadline?.toISOString().slice(0, 10),
+      ])
+      renderTsv(headers, rows)
+    })
+    .with('short', () => {
+      todos.forEach((todo) => {
+        const area = todo.area_title || ''
+        const project = todo.project_title ? ` > ${todo.project_title}` : ''
+        const heading = todo.heading_title ? ` > ${todo.heading_title}` : ''
+        const location = area || project ? `[${area}${project}${heading}] ` : ''
+        const dates = [
+          todo.start !== 'Anytime' ? todo.start.toLowerCase() : null,
+          todo.start_date ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}` : null,
+          todo.deadline ? `deadline: ${todo.deadline.toISOString().slice(0, 10)}` : null,
+        ].filter(Boolean)
+        const dateSuffix = dates.length ? ` (${dates.join(', ')})` : ''
+        console.log(`${location}${todo.title}${dateSuffix}`)
+      })
+    })
+    .with('pretty', () => {
+      todos.forEach((todo, i) => {
+        const created = todo.created.toISOString().slice(0, 10)
+        const area = todo.area_title || ''
+        const project = todo.project_title ? ` > ${todo.project_title}` : ''
+        const heading = todo.heading_title ? ` > ${todo.heading_title}` : ''
+        const location = area || project ? `[${area}${project}${heading}] ` : ''
+
+        if (i > 0) console.log()
+        console.log(`${location}${todo.title}`)
+        const dates = [
+          `created: ${created}`,
+          todo.modified ? `modified: ${todo.modified.toISOString().slice(0, 10)}` : null,
+          todo.start !== 'Anytime' ? `when: ${todo.start}` : null,
+          todo.start_date ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}` : null,
+          todo.deadline ? `deadline: ${todo.deadline.toISOString().slice(0, 10)}` : null,
+        ].filter(Boolean)
+        console.log(`  ${dates.join(' | ')}`)
+        if (todo.notes) {
+          console.log(`  ${todo.notes.replace(/\n/g, '\n  ')}`)
+        }
+        if (Array.isArray(todo.checklist)) {
+          for (const item of todo.checklist) {
+            const mark = item.status === 'completed' ? '✓' : '○'
+            console.log(`  ${mark} ${item.title}`)
+          }
+        }
+      })
+    })
+    .exhaustive()
 }
 
 await new Command()
@@ -86,7 +177,7 @@ await new Command()
     })
   })
   .reset()
-  .command('todo')
+  .command('todos')
   .description('lists items')
   .option('-a, --area <area:string>', 'filter by area name')
   .option('-p, --project <project:string>', 'filter by project name')
@@ -135,95 +226,7 @@ await new Command()
       todos = todos.filter((todo) => todo.modified && todo.modified >= cutoff)
     }
 
-    const showArea = !options.area
-    match(options.format)
-      .with('json', () => {
-        console.log(
-          JSON.stringify(
-            todos.map((todo) => ({
-              title: todo.title,
-              area: todo.area_title,
-              project: todo.project_title || null,
-              notes: todo.notes || null,
-              created: todo.created.toISOString().slice(0, 10),
-              modified: todo.modified?.toISOString().slice(0, 10) || null,
-              start: todo.start,
-              start_date: todo.start_date?.toISOString().slice(0, 10) || null,
-              deadline: todo.deadline?.toISOString().slice(0, 10) || null,
-            })),
-            null,
-            2,
-          ),
-        )
-      })
-      .with('tsv', () => {
-        const headers = [
-          'created',
-          ...(showArea ? ['area'] : []),
-          'project',
-          'heading',
-          'title',
-          'scheduled',
-          'deadline',
-        ]
-        const rows = todos.map((todo) => [
-          todo.created.toISOString().slice(0, 10),
-          ...(showArea ? [todo.area_title] : []),
-          todo.project_title,
-          todo.heading_title,
-          todo.title,
-          todo.start_date?.toISOString().slice(0, 10),
-          todo.deadline?.toISOString().slice(0, 10),
-        ])
-        renderTsv(headers, rows)
-      })
-      .with('short', () => {
-        todos.forEach((todo) => {
-          const area = todo.area_title || ''
-          const project = todo.project_title ? ` > ${todo.project_title}` : ''
-          const heading = todo.heading_title ? ` > ${todo.heading_title}` : ''
-          const location = area || project ? `[${area}${project}${heading}] ` : ''
-          const dates = [
-            todo.start !== 'Anytime' ? todo.start.toLowerCase() : null,
-            todo.start_date ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}` : null,
-            todo.deadline ? `deadline: ${todo.deadline.toISOString().slice(0, 10)}` : null,
-          ].filter(Boolean)
-          const dateSuffix = dates.length ? ` (${dates.join(', ')})` : ''
-          console.log(`${location}${todo.title}${dateSuffix}`)
-        })
-      })
-      .with('pretty', () => {
-        todos.forEach((todo, i) => {
-          const created = todo.created.toISOString().slice(0, 10)
-          const area = todo.area_title || ''
-          const project = todo.project_title ? ` > ${todo.project_title}` : ''
-          const heading = todo.heading_title ? ` > ${todo.heading_title}` : ''
-          const location = area || project ? `[${area}${project}${heading}] ` : ''
-
-          if (i > 0) console.log()
-          console.log(`${location}${todo.title}`)
-          const dates = [
-            `created: ${created}`,
-            todo.modified ? `modified: ${todo.modified.toISOString().slice(0, 10)}` : null,
-            todo.start !== 'Anytime' ? `when: ${todo.start}` : null,
-            todo.start_date
-              ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}`
-              : null,
-            todo.deadline ? `deadline: ${todo.deadline.toISOString().slice(0, 10)}` : null,
-          ].filter(Boolean)
-          console.log(`  ${dates.join(' | ')}`)
-          if (todo.notes) {
-            console.log(`  ${todo.notes.replace(/\n/g, '\n  ')}`)
-          }
-          if (Array.isArray(todo.checklist)) {
-            for (const item of todo.checklist) {
-              const mark = item.status === 'completed' ? '✓' : '○'
-              console.log(`  ${mark} ${item.title}`)
-            }
-          }
-        })
-      })
-      .exhaustive()
+    renderTodos(todos, options.format, !options.area)
   })
   .reset()
   .command('areas')
@@ -305,5 +308,60 @@ await new Command()
         })
       })
       .exhaustive()
+  })
+  .reset()
+  .command('today')
+  .description('lists tasks in Today view')
+  .option('-f, --format <format:string>', 'output format: short, pretty, json, tsv', {
+    default: 'short',
+    value: parseFormat,
+  })
+  .action(async ({ format }) => {
+    const todos = await getViewItems('today')
+    renderTodos(todos, format)
+  })
+  .reset()
+  .command('inbox')
+  .description('lists tasks in Inbox (unprocessed)')
+  .option('-f, --format <format:string>', 'output format: short, pretty, json, tsv', {
+    default: 'short',
+    value: parseFormat,
+  })
+  .action(async ({ format }) => {
+    const todos = await getViewItems('inbox')
+    renderTodos(todos, format)
+  })
+  .reset()
+  .command('anytime')
+  .description('lists tasks in Anytime view (no schedule, ready to do)')
+  .option('-f, --format <format:string>', 'output format: short, pretty, json, tsv', {
+    default: 'short',
+    value: parseFormat,
+  })
+  .action(async ({ format }) => {
+    const todos = await getViewItems('anytime')
+    renderTodos(todos, format)
+  })
+  .reset()
+  .command('upcoming')
+  .description('lists tasks in Upcoming view (scheduled for future)')
+  .option('-f, --format <format:string>', 'output format: short, pretty, json, tsv', {
+    default: 'short',
+    value: parseFormat,
+  })
+  .action(async ({ format }) => {
+    const todos = await getViewItems('upcoming')
+    renderTodos(todos, format)
+  })
+  .reset()
+  .command('someday')
+  .description('lists tasks in Someday view (deferred)')
+  .option('-f, --format <format:string>', 'output format: short, pretty, json, tsv', {
+    default: 'short',
+    value: parseFormat,
+  })
+  .action(async ({ format }) => {
+    const todos = await getViewItems('someday')
+    renderTodos(todos, format)
   })
   .parse(Deno.args)
