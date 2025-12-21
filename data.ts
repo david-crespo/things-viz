@@ -123,6 +123,11 @@ const areaListSchema = z.array(
   z.object({ type: z.literal('area'), uuid: z.string(), title: z.string() }),
 )
 
+export async function getItemByUuid(uuid: string) {
+  const items = await getParsedItems(false)
+  return items.find((i) => i.uuid === uuid) ?? null
+}
+
 export async function getAreas() {
   const areas = areaListSchema.parse(await $`things-cli -j areas`.json())
   return areas.map((a) => a.title).sort()

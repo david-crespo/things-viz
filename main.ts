@@ -8,7 +8,7 @@ import { Table } from '@cliffy/table'
 import $ from 'dax'
 
 import { getCounts, NO_AREA } from './viz.ts'
-import { getAllItems, getAreas, getProjects, getViewItems, type Todo } from './data.ts'
+import { getAllItems, getAreas, getItemByUuid, getProjects, getViewItems, type Todo } from './data.ts'
 
 function relToAbs(relPath: string) {
   const currFile = path.fromFileUrl(import.meta.url)
@@ -368,5 +368,18 @@ await new Command()
   .action(async ({ format }) => {
     const todos = await getViewItems('someday')
     renderTodos(todos, format)
+  })
+  .reset()
+  .command('link')
+  .description('outputs OSC 8 hyperlink for a Things item')
+  .arguments('<uuid:string>')
+  .action(async (_options, uuid: string) => {
+    const item = await getItemByUuid(uuid)
+    if (!item) {
+      console.error(`Item not found: ${uuid}`)
+      Deno.exit(1)
+    }
+    const url = `things:///show?id=${uuid}`
+    console.log(`\x1b]8;;${url}\x1b\\\x1b[34m${item.title}\x1b[0m\x1b]8;;\x1b\\`)
   })
   .parse(Deno.args)
