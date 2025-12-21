@@ -15,6 +15,7 @@ import {
   getProjects,
   getViewItems,
   type Todo,
+  type ViewName,
 } from './data.ts'
 
 function relToAbs(relPath: string) {
@@ -32,6 +33,19 @@ function parseFormat(format: string) {
     throw new ValidationError(`Invalid format argument '${format}'`)
   }
   return result.data
+}
+
+const formatOption = {
+  flags: '-f, --format <format:string>',
+  desc: 'output format: short, pretty, json, tsv',
+  opts: { default: 'short' as const, value: parseFormat },
+} as const
+
+function viewCommand(view: ViewName, description: string) {
+  return new Command()
+    .description(description)
+    .option(formatOption.flags, formatOption.desc, formatOption.opts)
+    .action(async ({ format }) => renderTodos(await getViewItems(view), format))
 }
 
 function renderCountsTable(counts: Record<string, unknown>[]) {
@@ -198,10 +212,7 @@ await new Command()
   .option('-r, --recent <days:integer>', 'only show items modified in last N days')
   .option('-c, --completed', 'show only completed items')
   .option('--all', 'show all items regardless of status')
-  .option('-f, --format <format:string>', 'output format: short, pretty, json, tsv', {
-    default: 'short',
-    value: parseFormat,
-  })
+  .option(formatOption.flags, formatOption.desc, formatOption.opts)
   .action(async (options) => {
     const includeChecklists = options.format === 'pretty'
     const incompleteOnly = !options.completed && !options.all
@@ -242,9 +253,9 @@ await new Command()
   .reset()
   .command('areas')
   .description('lists all areas')
-  .option('-f, --format <format:string>', 'output format: pretty, json, tsv', {
+  .option(formatOption.flags, formatOption.desc, {
+    ...formatOption.opts,
     default: 'pretty',
-    value: parseFormat,
   })
   .action(async ({ format }) => {
     const areas = await getAreas()
@@ -260,9 +271,9 @@ await new Command()
   .option('-a, --area <area:string>', 'filter by area name')
   .option('-c, --completed', 'show only completed projects')
   .option('--all', 'show all projects regardless of status')
-  .option('-f, --format <format:string>', 'output format: pretty, json, tsv', {
+  .option(formatOption.flags, formatOption.desc, {
+    ...formatOption.opts,
     default: 'pretty',
-    value: parseFormat,
   })
   .action(async ({ area, completed, all, format }) => {
     let projects = await getProjects()
@@ -320,72 +331,30 @@ await new Command()
       })
       .exhaustive()
   })
-  .reset()
-  .command('today')
-  .description('lists tasks in Today view')
-  .option('-f, --format <format:string>', 'output format: short, pretty, json, tsv', {
-    default: 'short',
-    value: parseFormat,
-  })
-  .action(async ({ format }) => {
-    const todos = await getViewItems('today')
-    renderTodos(todos, format)
-  })
-  .reset()
-  .command('inbox')
-  .description('lists tasks in Inbox (unprocessed)')
-  .option('-f, --format <format:string>', 'output format: short, pretty, json, tsv', {
-    default: 'short',
-    value: parseFormat,
-  })
-  .action(async ({ format }) => {
-    const todos = await getViewItems('inbox')
-    renderTodos(todos, format)
-  })
-  .reset()
-  .command('anytime')
-  .description('lists tasks in Anytime view (no schedule, ready to do)')
-  .option('-f, --format <format:string>', 'output format: short, pretty, json, tsv', {
-    default: 'short',
-    value: parseFormat,
-  })
-  .action(async ({ format }) => {
-    const todos = await getViewItems('anytime')
-    renderTodos(todos, format)
-  })
-  .reset()
-  .command('upcoming')
-  .description('lists tasks in Upcoming view (scheduled for future)')
-  .option('-f, --format <format:string>', 'output format: short, pretty, json, tsv', {
-    default: 'short',
-    value: parseFormat,
-  })
-  .action(async ({ format }) => {
-    const todos = await getViewItems('upcoming')
-    renderTodos(todos, format)
-  })
-  .reset()
-  .command('someday')
-  .description('lists tasks in Someday view (deferred)')
-  .option('-f, --format <format:string>', 'output format: short, pretty, json, tsv', {
-    default: 'short',
-    value: parseFormat,
-  })
-  .action(async ({ format }) => {
-    const todos = await getViewItems('someday')
-    renderTodos(todos, format)
-  })
-  .reset()
-  .command('link')
-  .description('outputs OSC 8 hyperlink for a Things item')
-  .arguments('<uuid:string>')
-  .action(async (_options, uuid: string) => {
-    const item = await getItemByUuid(uuid)
-    if (!item) {
-      console.error(`Item not found: ${uuid}`)
-      Deno.exit(1)
-    }
-    const url = `things:///show?id=${uuid}`
-    console.log(`\x1b]8;;${url}\x1b\\\x1b[34m${item.title}\x1b[0m\x1b]8;;\x1b\\`)
-  })
+  .command('today', viewCommand('today', 'lists tasks in Today view'))
+  .command('inbox', viewCommand('inbox', 'lists tasks in Inbox (unprocessed)'))
+  .command(
+    'anytime',
+    viewCommand('anytime', 'lists tasks in Anytime view (no schedule, ready to do)'),
+  )
+  .command(
+    'upcoming',
+    viewCommand('upcoming', 'lists tasks in Upcoming view (scheduled for future)'),
+  )
+  .command('someday', viewCommand('someday', 'lists tasks in Someday view (deferred)'))
+  .command(
+    'link',
+    new Command()
+      .description('outputs OSC 8 hyperlink for a Things item')
+      .arguments('<uuid:string>')
+      .action(async (_options, uuid: string) => {
+        const item = await getItemByUuid(uuid)
+        if (!item) {
+          console.error(`Item not found: ${uuid}`)
+          Deno.exit(1)
+        }
+        const url = `things:///show?id=${uuid}`
+        console.log(`\x1b]8;;${url}\x1b\\\x1b[34m${item.title}\x1b[0m\x1b]8;;\x1b\\`)
+      }),
+  )
   .parse(Deno.args)

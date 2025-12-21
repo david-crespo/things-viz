@@ -111,7 +111,7 @@ export async function getProjects() {
   }))
 }
 
-type ViewName = 'today' | 'inbox' | 'anytime' | 'upcoming' | 'someday'
+export type ViewName = 'today' | 'inbox' | 'anytime' | 'upcoming' | 'someday'
 export type Todo = Awaited<ReturnType<typeof getAllItems>>[number]
 
 export async function getViewItems(view: ViewName) {
