@@ -5,7 +5,6 @@ import { z } from 'zod'
 import { match } from 'ts-pattern'
 import { Command, ValidationError } from '@cliffy/command'
 import { Table } from '@cliffy/table'
-import $ from 'dax'
 
 import {
   getAllItems,
@@ -181,12 +180,16 @@ await new Command()
   .command('plot')
   .description('runs server showing plot')
   .action(async () => {
-    const counts = await getCounts()
-    const plotData = counts.flatMap(({ date, ...dateCounts }) =>
-      Object.entries(dateCounts).map(([area, count]) => ({ date, area, count }))
-    )
-    await Deno.writeTextFile(relToAbs('./output.json'), JSON.stringify(plotData))
-    await $`npm run --prefix ${relToAbs('./plot-app')} dev -- --open`
+    const template = await Deno.readTextFile(relToAbs('./plot.html'))
+    console.log('Plot server running at http://localhost:8000')
+    Deno.serve({ port: 8000 }, async () => {
+      const counts = await getCounts()
+      const plotData = counts.flatMap(({ date, ...dateCounts }) =>
+        Object.entries(dateCounts).map(([area, count]) => ({ date, area, count }))
+      )
+      const html = template.replace('/*__DATA__*/ []', JSON.stringify(plotData))
+      return new Response(html, { headers: { 'content-type': 'text/html' } })
+    })
   })
   .reset()
   .command('done')

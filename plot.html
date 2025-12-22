@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Things Viz</title>
+    <style>
+      :root {
+        font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+        line-height: 1.5;
+        font-weight: 400;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      body {
+        margin: 0;
+        min-width: 320px;
+        min-height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div style="padding: 1rem">
+      <label>Start: <input type="date" name="start" onchange="render()" /></label>
+      <label>End: <input type="date" name="end" onchange="render()" /></label>
+      <button onclick="renderLast(30)">30d</button>
+      <button onclick="renderLast(90)">90d</button>
+      <button onclick="renderLast(365)">1y</button>
+      <button onclick="renderLast(365 * 2)">2y</button>
+    </div>
+    <div id="plots"></div>
+
+    <script type="module">
+      import * as Plot from 'https://esm.sh/@observablehq/plot@0.6'
+
+      const rawData = /*__DATA__*/ []
+
+      const dateToStr = (d) => d.toISOString().slice(0, 10)
+
+      // assumes the data are sorted and there is a data point for every day
+      function movingAvg(data, windowSize) {
+        const result = []
+        let sum = 0
+        let start = 0
+
+        for (let i = 0; i < data.length; i++) {
+          sum += data[i].count
+
+          if (i - start + 1 === windowSize) {
+            result.push({ date: data[start].date, count: sum / windowSize })
+            sum -= data[start].count
+            start++
+          }
+        }
+
+        return result
+      }
+
+      const getPlot = (title, data) =>
+        Plot.plot({
+          width: 960,
+          style: 'overflow: visible;',
+          y: { grid: true },
+          title,
+          marks: [
+            Plot.lineY(data, { x: 'date', y: 'count', stroke: 'area' }),
+            Plot.text(
+              data,
+              Plot.selectLast({
+                x: 'date',
+                y: 'count',
+                z: 'area',
+                text: 'area',
+                textAnchor: 'start',
+                dx: 3,
+              }),
+            ),
+          ],
+        })
+
+      const getStartInput = () => document.querySelector('input[name=start]')
+      const getEndInput = () => document.querySelector('input[name=end]')
+
+      function render() {
+        const start = new Date(getStartInput().value)
+        const end = new Date(getEndInput().value)
+
+        const allData = rawData
+          .map(({ date, ...rest }) => ({ date: new Date(date), ...rest }))
+          .filter(({ date }) => date >= start && date <= end)
+
+        const breakdownPlot = getPlot(
+          'Breakdown',
+          allData.filter(({ area }) => area !== 'Total' && area !== 'Completions'),
+        )
+        const totalPlot = getPlot(
+          'Total',
+          allData.filter(({ area }) => area === 'Total'),
+        )
+        const oxidePlot = getPlot(
+          'Oxide',
+          allData.filter(({ area }) => area === 'Oxide'),
+        )
+
+        const completionsData = allData.filter(({ area }) => area === 'Completions')
+
+        // remove last data point because it's a fake one that's always zero
+        if (completionsData.at(-1)?.count === 0) {
+          completionsData.pop()
+        }
+
+        const completionsPlot = getPlot(
+          'Completions (30 day moving average)',
+          movingAvg(completionsData, 30).map((p) => ({
+            ...p,
+            area: 'Completions',
+          })),
+        )
+
+        const div = document.querySelector('#plots')
+        div.innerHTML = ''
+        div.append(breakdownPlot)
+        div.append(totalPlot)
+        div.append(oxidePlot)
+        div.append(completionsPlot)
+      }
+
+      function daysAgo(n) {
+        const today = new Date()
+        const start = new Date()
+        start.setDate(today.getDate() - n)
+        return start
+      }
+
+      function renderLast(n) {
+        getStartInput().value = dateToStr(daysAgo(n))
+        getEndInput().value = dateToStr(daysAgo(-1))
+        render()
+      }
+
+      renderLast(365)
+
+      window.render = render
+      window.renderLast = renderLast
+    </script>
+  </body>
+</html>
