@@ -7,13 +7,14 @@ import { Command, ValidationError } from '@cliffy/command'
 import { Table } from '@cliffy/table'
 import $ from 'dax'
 
-import { getCounts, NO_AREA } from './viz.ts'
 import {
   getAllItems,
   getAreas,
+  getCounts,
   getItemByUuid,
   getProjects,
   getViewItems,
+  NO_AREA,
   type Todo,
   type ViewName,
 } from './data.ts'
