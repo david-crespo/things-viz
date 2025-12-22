@@ -43,6 +43,7 @@ def main():
         items = things.todos(status="incomplete", include_items=include_items)
         if not incomplete_only:
             items = items + things.todos(status="completed", include_items=include_items)
+            items = items + things.todos(status="canceled", include_items=include_items)
         output(resolve_areas(items))
 
     elif cmd == "areas":
