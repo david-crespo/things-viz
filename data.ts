@@ -8,7 +8,6 @@ const scriptPath = path.join(
 )
 
 const status = z.enum(['incomplete', 'completed', 'canceled'])
-const dateStr = z.string().nullable()
 
 const checklistItemSchema = z.object({
   type: z.literal('checklist-item'),
@@ -17,7 +16,8 @@ const checklistItemSchema = z.object({
   status,
   created: z.string().nullable(),
   modified: z.string().nullable(),
-  stop_date: dateStr,
+  // when the item was completed or canceled
+  stop_date: z.string().nullable(),
 })
 
 const itemBase = z.object({
@@ -26,10 +26,14 @@ const itemBase = z.object({
   status,
   created: z.string(),
   modified: z.string().nullable(),
+  // scheduling bucket: "Inbox", "Anytime", "Someday", or "Upcoming"
   start: z.string(),
-  start_date: dateStr,
-  deadline: dateStr,
-  stop_date: dateStr,
+  // user-set scheduled date (when item should appear in Today)
+  start_date: z.string().nullable(),
+  // user-set due date
+  deadline: z.string().nullable(),
+  // when the item was completed or canceled (used to reconstruct historical open counts)
+  stop_date: z.string().nullable(),
   notes: z.string().optional(),
   area: z.string().optional(),
   area_title: z.string().nullable().optional(),
