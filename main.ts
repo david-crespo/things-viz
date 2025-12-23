@@ -1,4 +1,4 @@
-#!/usr/bin/env deno run --allow-net --allow-env --allow-ffi --allow-read --allow-run=open
+#!/usr/bin/env deno run --allow-net=0.0.0.0:8000 --allow-env=THINGSDB,HOME --allow-read --allow-run=open
 
 import { z } from 'zod'
 import { match } from 'ts-pattern'
@@ -167,7 +167,7 @@ await new Command()
     throw new ValidationError('Command required')
   })
   .command('table')
-  .description('prints table of the last 30 days')
+  .description('print table of the last 30 days')
   .action(async () => {
     const counts = (await getCounts()).slice(-30)
     if (!counts.some((c) => c[NO_AREA])) {
@@ -177,7 +177,7 @@ await new Command()
   })
   .reset()
   .command('plot')
-  .description('runs server showing plot')
+  .description('run server showing plot')
   .action(() => {
     const server = Deno.serve(async () => {
       const counts = await getCounts()
@@ -192,7 +192,7 @@ await new Command()
   })
   .reset()
   .command('done')
-  .description('lists recent done items')
+  .description('list recent done items')
   .arguments('[area:string]')
   .action(async (_options, area?: string) => {
     let todos = (await getAllItems()).filter((todo) => todo.status === 'completed')
@@ -211,7 +211,7 @@ await new Command()
   })
   .reset()
   .command('todos')
-  .description('lists items')
+  .description('list items')
   .option('-a, --area <area:string>', 'filter by area name')
   .option('-p, --project <project:string>', 'filter by project name')
   .option('-s, --search <text:string>', 'search in title and notes')
@@ -258,7 +258,7 @@ await new Command()
   })
   .reset()
   .command('areas')
-  .description('lists all areas')
+  .description('list all areas')
   .option(formatOption.flags, formatOption.desc, {
     ...formatOption.opts,
     default: 'pretty',
@@ -273,7 +273,7 @@ await new Command()
   })
   .reset()
   .command('projects')
-  .description('lists projects')
+  .description('list projects')
   .option('-a, --area <area:string>', 'filter by area name')
   .option('-c, --completed', 'show only completed projects')
   .option('--all', 'show all projects regardless of status')
@@ -337,21 +337,21 @@ await new Command()
       })
       .exhaustive()
   })
-  .command('today', viewCommand('today', 'lists tasks in Today view'))
-  .command('inbox', viewCommand('inbox', 'lists tasks in Inbox (unprocessed)'))
+  .command('today', viewCommand('today', 'list tasks in Today view'))
+  .command('inbox', viewCommand('inbox', 'list tasks in Inbox'))
   .command(
     'anytime',
-    viewCommand('anytime', 'lists tasks in Anytime view (no schedule, ready to do)'),
+    viewCommand('anytime', 'list tasks in Anytime view (no schedule, ready to do)'),
   )
   .command(
     'upcoming',
-    viewCommand('upcoming', 'lists tasks in Upcoming view (scheduled for future)'),
+    viewCommand('upcoming', 'list tasks in Upcoming view (scheduled for future)'),
   )
-  .command('someday', viewCommand('someday', 'lists tasks in Someday view (deferred)'))
+  .command('someday', viewCommand('someday', 'list tasks in Someday view (deferred)'))
   .command(
     'link',
     new Command()
-      .description('outputs OSC 8 hyperlink for a Things item')
+      .description('output OSC 8 hyperlink for a Things item')
       .arguments('<uuid:string>')
       .action(async (_options, uuid: string) => {
         const item = await getItemByUuid(uuid)

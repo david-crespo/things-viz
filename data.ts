@@ -1,4 +1,4 @@
-import { Database } from '@db/sqlite'
+import { DatabaseSync } from 'node:sqlite'
 import { expandGlob } from '@std/fs/expand-glob'
 import dayjs from 'dayjs'
 import memoize from 'memoize'
@@ -206,10 +206,10 @@ const TODO_BASE_WHERE = `
   AND (h.project IS NULL OR hp.trashed = 0)`
 
 class Things {
-  private db: Database
+  private db: DatabaseSync
 
   constructor(dbPath: string) {
-    this.db = new Database(dbPath, { readonly: true })
+    this.db = new DatabaseSync(dbPath, { readOnly: true })
   }
 
   [Symbol.dispose]() {
