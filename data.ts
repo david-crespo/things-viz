@@ -26,7 +26,7 @@ const itemBase = z.object({
   status,
   created: z.string(),
   modified: z.string().nullable(),
-  // scheduling bucket: "Inbox", "Anytime", "Someday", or "Upcoming"
+  // scheduling bucket: "Inbox", "Anytime", or "Someday"
   start: z.string(),
   // user-set scheduled date (when item should appear in Today)
   start_date: z.string().nullable(),
@@ -184,7 +184,8 @@ function parseTodo(item: z.infer<typeof todoSchema>) {
 const TODO_COLS = `
   t.uuid, t.type, t.title, t.status,
   t.area, a.title as area_title,
-  t.project, p.title as project_title,
+  COALESCE(t.project, h.project) as project,
+  COALESCE(p.title, hp.title) as project_title,
   t.heading, h.title as heading_title,
   t.notes, t.start, t.startDate, t.deadline, t.stopDate,
   t.creationDate, t.userModificationDate, t."index" as idx, t.todayIndex`
@@ -232,7 +233,7 @@ class Things {
           t.creationDate, t.userModificationDate, t."index" as idx, t.todayIndex
         FROM TMTask t
         LEFT JOIN TMArea a ON t.area = a.uuid
-        WHERE t.type = 1 AND t.trashed = 0 AND t.status = 0
+        WHERE t.type = 1 AND t.trashed = 0
         ORDER BY t."index"`,
       )
       .all()

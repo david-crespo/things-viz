@@ -45,7 +45,14 @@ function viewCommand(view: ViewName, description: string) {
 
 function renderCountsTable(counts: Record<string, unknown>[]) {
   if (counts.length === 0) return
-  const headers = Object.keys(counts[0])
+  // Collect all keys across all rows to avoid missing columns
+  const allKeys = new Set(counts.flatMap(Object.keys))
+  // Order: date, Total, Completions, No area, then remaining areas sorted
+  const priority = ['date', 'Total', 'Completions', NO_AREA]
+  const headers = [
+    ...priority.filter((k) => allKeys.has(k)),
+    ...[...allKeys].filter((k) => !priority.includes(k)).sort(),
+  ]
   const rows = counts.map((c) => headers.map((h) => String(c[h] ?? '')))
   new Table().header(headers).body(rows).padding(1).render()
 }
@@ -156,12 +163,8 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
 await new Command()
   .name('tviz')
   .description('Visualize Things 3 data')
-  .action(async () => {
-    const counts = (await getCounts()).slice(-30)
-    if (!counts.some((c) => c[NO_AREA])) {
-      counts.forEach((c) => delete c[NO_AREA])
-    }
-    renderCountsTable(counts)
+  .action(() => {
+    throw new ValidationError('Command required')
   })
   .command('table')
   .description('prints table of the last 30 days')
@@ -196,11 +199,15 @@ await new Command()
     if (area) {
       todos = todos.filter((todo) => todo.area_title.toLowerCase() === area.toLowerCase())
     }
-    todos.slice(0, 220).forEach((todo) => {
-      const date = todo.stop_date?.toISOString().slice(0, 10) ?? ''
-      const project = todo.project_title ? `[${todo.project_title}] ` : ''
-      console.log(`${date} ${project}${todo.title}`)
-    })
+    todos
+      .filter((todo) => todo.stop_date !== null)
+      .sort((a, b) => b.stop_date!.getTime() - a.stop_date!.getTime())
+      .slice(0, 220)
+      .forEach((todo) => {
+        const date = todo.stop_date!.toISOString().slice(0, 10)
+        const project = todo.project_title ? `[${todo.project_title}] ` : ''
+        console.log(`${date} ${project}${todo.title}`)
+      })
   })
   .reset()
   .command('todos')
