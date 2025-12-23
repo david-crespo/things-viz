@@ -191,6 +191,30 @@ function parseTodo(item: z.infer<typeof todoSchema>) {
   }
 }
 
+// SQL fragments for todo queries
+const TODO_COLS = `
+  t.uuid, t.type, t.title, t.status,
+  t.area, a.title as area_title,
+  t.project, p.title as project_title,
+  t.heading, h.title as heading_title,
+  t.notes, t.start, t.startDate, t.deadline, t.stopDate,
+  t.creationDate, t.userModificationDate, t."index" as idx, t.todayIndex`
+
+const TODO_FROM = `
+  FROM TMTask t
+  LEFT JOIN TMArea a ON t.area = a.uuid
+  LEFT JOIN TMTask p ON t.project = p.uuid
+  LEFT JOIN TMTask h ON t.heading = h.uuid
+  LEFT JOIN TMTask hp ON h.project = hp.uuid`
+
+// Excludes trashed items and recurring tasks, ensures parent project/heading not trashed
+const TODO_BASE_WHERE = `
+  t.type = 0 AND t.trashed = 0
+  AND t.rt1_recurrenceRule IS NULL
+  AND (t.project IS NULL OR p.trashed = 0)
+  AND (t.heading IS NULL OR h.trashed = 0)
+  AND (h.project IS NULL OR hp.trashed = 0)`
+
 class Things {
   private db: Database
 
@@ -235,23 +259,8 @@ class Things {
 
     return this.db
       .prepare(
-        `SELECT
-          t.uuid, t.type, t.title, t.status,
-          t.area, a.title as area_title,
-          t.project, p.title as project_title,
-          t.heading, h.title as heading_title,
-          t.notes, t.start, t.startDate, t.deadline, t.stopDate,
-          t.creationDate, t.userModificationDate, t."index" as idx, t.todayIndex
-        FROM TMTask t
-        LEFT JOIN TMArea a ON t.area = a.uuid
-        LEFT JOIN TMTask p ON t.project = p.uuid
-        LEFT JOIN TMTask h ON t.heading = h.uuid
-        LEFT JOIN TMTask hp ON h.project = hp.uuid
-        WHERE t.type = 0 AND t.trashed = 0 AND t.status = ?
-          AND t.rt1_recurrenceRule IS NULL
-          AND (t.project IS NULL OR p.trashed = 0)
-          AND (t.heading IS NULL OR h.trashed = 0)
-          AND (h.project IS NULL OR hp.trashed = 0)
+        `SELECT ${TODO_COLS} ${TODO_FROM}
+        WHERE ${TODO_BASE_WHERE} AND t.status = ?
         ORDER BY t."index"`,
       )
       .all(statusVal)
@@ -259,144 +268,50 @@ class Things {
   }
 
   today(): Row[] {
-    const todayIso = localDateStr()
     return this.db
       .prepare(
-        `SELECT
-          t.uuid, t.type, t.title, t.status,
-          t.area, a.title as area_title,
-          t.project, p.title as project_title,
-          t.heading, h.title as heading_title,
-          t.notes, t.start, t.startDate, t.deadline, t.stopDate,
-          t.creationDate, t.userModificationDate, t."index" as idx, t.todayIndex
-        FROM TMTask t
-        LEFT JOIN TMArea a ON t.area = a.uuid
-        LEFT JOIN TMTask p ON t.project = p.uuid
-        LEFT JOIN TMTask h ON t.heading = h.uuid
-        LEFT JOIN TMTask hp ON h.project = hp.uuid
-        WHERE t.type = 0 AND t.trashed = 0 AND t.status = 0
-          AND t.rt1_recurrenceRule IS NULL
-          AND t.start = 1 AND t.startDate IS NOT NULL
-          AND t.startDate <= ?
-          AND (t.project IS NULL OR p.trashed = 0)
-          AND (t.heading IS NULL OR h.trashed = 0)
-          AND (h.project IS NULL OR hp.trashed = 0)
+        `SELECT ${TODO_COLS} ${TODO_FROM}
+        WHERE ${TODO_BASE_WHERE}
+          AND t.status = 0 AND t.start = 1
+          AND t.startDate IS NOT NULL AND t.startDate <= ?
         ORDER BY t.todayIndex`,
       )
-      .all(isoToThingsDate(todayIso))
+      .all(isoToThingsDate(localDateStr()))
       .map((row) => transformTask(row as Row))
   }
 
   inbox(): Row[] {
-    return this.queryByStart(0)
+    return this.queryView('t.start = 0')
   }
 
   anytime(): Row[] {
-    return this.db
-      .prepare(
-        `SELECT
-          t.uuid, t.type, t.title, t.status,
-          t.area, a.title as area_title,
-          t.project, p.title as project_title,
-          t.heading, h.title as heading_title,
-          t.notes, t.start, t.startDate, t.deadline, t.stopDate,
-          t.creationDate, t.userModificationDate, t."index" as idx, t.todayIndex
-        FROM TMTask t
-        LEFT JOIN TMArea a ON t.area = a.uuid
-        LEFT JOIN TMTask p ON t.project = p.uuid
-        LEFT JOIN TMTask h ON t.heading = h.uuid
-        LEFT JOIN TMTask hp ON h.project = hp.uuid
-        WHERE t.type = 0 AND t.trashed = 0 AND t.status = 0
-          AND t.rt1_recurrenceRule IS NULL
-          AND t.start = 1
-          AND (t.project IS NULL OR p.trashed = 0)
-          AND (t.heading IS NULL OR h.trashed = 0)
-          AND (h.project IS NULL OR hp.trashed = 0)
-        ORDER BY t."index"`,
-      )
-      .all()
-      .map((row) => transformTask(row as Row))
+    return this.queryView('t.start = 1')
   }
 
   upcoming(): Row[] {
-    const todayIso = localDateStr()
     return this.db
       .prepare(
-        `SELECT
-          t.uuid, t.type, t.title, t.status,
-          t.area, a.title as area_title,
-          t.project, p.title as project_title,
-          t.heading, h.title as heading_title,
-          t.notes, t.start, t.startDate, t.deadline, t.stopDate,
-          t.creationDate, t.userModificationDate, t."index" as idx, t.todayIndex
-        FROM TMTask t
-        LEFT JOIN TMArea a ON t.area = a.uuid
-        LEFT JOIN TMTask p ON t.project = p.uuid
-        LEFT JOIN TMTask h ON t.heading = h.uuid
-        LEFT JOIN TMTask hp ON h.project = hp.uuid
-        WHERE t.type = 0 AND t.trashed = 0 AND t.status = 0
-          AND t.rt1_recurrenceRule IS NULL
-          AND t.start = 2
-          AND t.startDate > ?
-          AND (t.project IS NULL OR p.trashed = 0)
-          AND (t.heading IS NULL OR h.trashed = 0)
-          AND (h.project IS NULL OR hp.trashed = 0)
+        `SELECT ${TODO_COLS} ${TODO_FROM}
+        WHERE ${TODO_BASE_WHERE}
+          AND t.status = 0 AND t.start = 2 AND t.startDate > ?
         ORDER BY t."index"`,
       )
-      .all(isoToThingsDate(todayIso))
+      .all(isoToThingsDate(localDateStr()))
       .map((row) => transformTask(row as Row))
   }
 
   someday(): Row[] {
+    return this.queryView('t.start = 2 AND (t.startDate IS NULL OR t.startDate = 0)')
+  }
+
+  private queryView(extraWhere: string): Row[] {
     return this.db
       .prepare(
-        `SELECT
-          t.uuid, t.type, t.title, t.status,
-          t.area, a.title as area_title,
-          t.project, p.title as project_title,
-          t.heading, h.title as heading_title,
-          t.notes, t.start, t.startDate, t.deadline, t.stopDate,
-          t.creationDate, t.userModificationDate, t."index" as idx, t.todayIndex
-        FROM TMTask t
-        LEFT JOIN TMArea a ON t.area = a.uuid
-        LEFT JOIN TMTask p ON t.project = p.uuid
-        LEFT JOIN TMTask h ON t.heading = h.uuid
-        LEFT JOIN TMTask hp ON h.project = hp.uuid
-        WHERE t.type = 0 AND t.trashed = 0 AND t.status = 0 AND t.start = 2
-          AND t.rt1_recurrenceRule IS NULL
-          AND (t.startDate IS NULL OR t.startDate = 0)
-          AND (t.project IS NULL OR p.trashed = 0)
-          AND (t.heading IS NULL OR h.trashed = 0)
-          AND (h.project IS NULL OR hp.trashed = 0)
+        `SELECT ${TODO_COLS} ${TODO_FROM}
+        WHERE ${TODO_BASE_WHERE} AND t.status = 0 AND ${extraWhere}
         ORDER BY t."index"`,
       )
       .all()
-      .map((row) => transformTask(row as Row))
-  }
-
-  private queryByStart(startVal: number): Row[] {
-    return this.db
-      .prepare(
-        `SELECT
-          t.uuid, t.type, t.title, t.status,
-          t.area, a.title as area_title,
-          t.project, p.title as project_title,
-          t.heading, h.title as heading_title,
-          t.notes, t.start, t.startDate, t.deadline, t.stopDate,
-          t.creationDate, t.userModificationDate, t."index" as idx, t.todayIndex
-        FROM TMTask t
-        LEFT JOIN TMArea a ON t.area = a.uuid
-        LEFT JOIN TMTask p ON t.project = p.uuid
-        LEFT JOIN TMTask h ON t.heading = h.uuid
-        LEFT JOIN TMTask hp ON h.project = hp.uuid
-        WHERE t.type = 0 AND t.trashed = 0 AND t.status = 0 AND t.start = ?
-          AND t.rt1_recurrenceRule IS NULL
-          AND (t.project IS NULL OR p.trashed = 0)
-          AND (t.heading IS NULL OR h.trashed = 0)
-          AND (h.project IS NULL OR hp.trashed = 0)
-        ORDER BY t."index"`,
-      )
-      .all(startVal)
       .map((row) => transformTask(row as Row))
   }
 
