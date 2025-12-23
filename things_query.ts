@@ -137,7 +137,7 @@ class Things {
       .map(transformTask)
   }
 
-  todos(options: { status?: string; includeItems?: boolean } = {}): Row[] {
+  todos(options: { status?: string } = {}): Row[] {
     const statusVal = options.status === 'completed'
       ? 3
       : options.status === 'canceled'
@@ -191,7 +191,8 @@ class Things {
           AND t.start = 1 AND t.startDate IS NOT NULL
           AND t.startDate <= ?
           AND (t.project IS NULL OR p.trashed = 0)
-          AND (t.heading IS NULL OR hp.trashed = 0)
+          AND (t.heading IS NULL OR h.trashed = 0)
+          AND (h.project IS NULL OR hp.trashed = 0)
         ORDER BY t.todayIndex`,
       )
       .all(isoToThingsDate(todayIso))
@@ -221,7 +222,8 @@ class Things {
           AND t.rt1_recurrenceRule IS NULL
           AND t.start = 1
           AND (t.project IS NULL OR p.trashed = 0)
-          AND (t.heading IS NULL OR hp.trashed = 0)
+          AND (t.heading IS NULL OR h.trashed = 0)
+          AND (h.project IS NULL OR hp.trashed = 0)
         ORDER BY t."index"`,
       )
       .all()
@@ -250,7 +252,8 @@ class Things {
           AND t.start = 2
           AND t.startDate > ?
           AND (t.project IS NULL OR p.trashed = 0)
-          AND (t.heading IS NULL OR hp.trashed = 0)
+          AND (t.heading IS NULL OR h.trashed = 0)
+          AND (h.project IS NULL OR hp.trashed = 0)
         ORDER BY t."index"`,
       )
       .all(isoToThingsDate(todayIso))
@@ -277,7 +280,8 @@ class Things {
           AND t.rt1_recurrenceRule IS NULL
           AND (t.startDate IS NULL OR t.startDate = 0)
           AND (t.project IS NULL OR p.trashed = 0)
-          AND (t.heading IS NULL OR hp.trashed = 0)
+          AND (t.heading IS NULL OR h.trashed = 0)
+          AND (h.project IS NULL OR hp.trashed = 0)
         ORDER BY t."index"`,
       )
       .all()
@@ -302,29 +306,41 @@ class Things {
         WHERE t.type = 0 AND t.trashed = 0 AND t.status = 0 AND t.start = ?
           AND t.rt1_recurrenceRule IS NULL
           AND (t.project IS NULL OR p.trashed = 0)
-          AND (t.heading IS NULL OR hp.trashed = 0)
+          AND (t.heading IS NULL OR h.trashed = 0)
+          AND (h.project IS NULL OR hp.trashed = 0)
         ORDER BY t."index"`,
       )
       .all(startVal)
       .map(transformTask)
   }
 
-  getChecklistItems(taskUuid: string): Row[] {
-    return this.db
-      .prepare(
-        `SELECT uuid, title, status, creationDate, userModificationDate, stopDate
-        FROM TMChecklistItem
-        WHERE task = ?
-        ORDER BY "index"`,
-      )
-      .all(taskUuid)
-      .map(transformChecklistItem)
-  }
-
   attachChecklistItems(tasks: Row[]): Row[] {
+    const uuids = tasks.map((t) => t.uuid as string)
+    if (uuids.length === 0) return tasks
+
+    // Batch query all checklist items for these tasks
+    const placeholders = uuids.map(() => '?').join(',')
+    const items = this.db
+      .prepare(
+        `SELECT task, uuid, title, status, creationDate, userModificationDate, stopDate
+        FROM TMChecklistItem
+        WHERE task IN (${placeholders})
+        ORDER BY task, "index"`,
+      )
+      .all(...uuids)
+      .map((row) => ({ task: (row as Row).task, ...transformChecklistItem(row as Row) }))
+
+    // Group by task UUID
+    const byTask = new Map<string, Row[]>()
+    for (const item of items) {
+      const taskUuid = item.task as string
+      if (!byTask.has(taskUuid)) byTask.set(taskUuid, [])
+      byTask.get(taskUuid)!.push(item)
+    }
+
     for (const task of tasks) {
-      const items = this.getChecklistItems(task.uuid as string)
-      task.checklist = items.length > 0 ? items : null
+      const taskItems = byTask.get(task.uuid as string)
+      task.checklist = taskItems && taskItems.length > 0 ? taskItems : null
     }
     return tasks
   }
@@ -400,17 +416,17 @@ async function main() {
 
     switch (cmd) {
       case 'todos': {
-        const includeItems = args.includes('--checklists')
+        const includeChecklists = args.includes('--checklists')
         const incompleteOnly = args.includes('--incomplete')
-        let items = things.todos({ status: 'incomplete', includeItems })
+        let items = things.todos({ status: 'incomplete' })
         if (!incompleteOnly) {
           items = [
             ...items,
-            ...things.todos({ status: 'completed', includeItems }),
-            ...things.todos({ status: 'canceled', includeItems }),
+            ...things.todos({ status: 'completed' }),
+            ...things.todos({ status: 'canceled' }),
           ]
         }
-        if (includeItems) things.attachChecklistItems(items)
+        if (includeChecklists) things.attachChecklistItems(items)
         result = resolveAreas(items, things)
         break
       }

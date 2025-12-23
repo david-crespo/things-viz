@@ -1,7 +1,6 @@
 #!/usr/bin/env -S deno test --allow-read --allow-run --allow-env
 
-import { AssertionError } from '@std/assert'
-import { diff } from '@std/internal/diff'
+import { assertEquals } from '@std/assert'
 
 const pyScript = './things_query.py'
 const tsScript = './things_query.ts'
@@ -64,20 +63,7 @@ async function comparePyTs(args: string[]) {
 }
 
 function assertEqualWithDiff(ts: unknown, py: unknown) {
-  const tsStr = JSON.stringify(ts, null, 2)
-  const pyStr = JSON.stringify(py, null, 2)
-  if (tsStr === pyStr) return
-
-  const tsLines = tsStr.split('\n')
-  const pyLines = pyStr.split('\n')
-  const result = diff(tsLines, pyLines)
-
-  const diffLines: string[] = []
-  for (const r of result) {
-    const prefix = r.type === 'added' ? '+' : r.type === 'removed' ? '-' : ' '
-    diffLines.push(`${prefix} ${r.value}`)
-  }
-  throw new AssertionError(`TypeScript vs Python diff:\n${diffLines.join('\n')}`)
+  assertEquals(ts, py, 'TypeScript output should match Python output')
 }
 
 Deno.test('areas returns same data', async () => {
