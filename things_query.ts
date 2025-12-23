@@ -4,7 +4,7 @@ import { Database } from '@db/sqlite'
 import { expandGlob } from '@std/fs/expand-glob'
 
 // Find Things database path
-async function findDatabasePath(): Promise<string> {
+export async function findDatabasePath(): Promise<string> {
   const envPath = Deno.env.get('THINGSDB')
   if (envPath) return envPath
 
@@ -29,12 +29,21 @@ function thingsDateToIso(td: number | null): string | null {
 
 function unixToDatetime(ts: number | null): string | null {
   if (!ts) return null
-  // Things stores unix timestamps (seconds since 1970-01-01)
-  const d = new Date(ts * 1000)
+  // Things stores unix timestamps with fractional seconds. SQLite datetime()
+  // truncates, so we use Math.floor for compatibility.
+  const d = new Date(Math.floor(ts) * 1000)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${
     pad(d.getHours())
   }:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+function unixToDate(ts: number | null): string | null {
+  if (!ts) return null
+  // SQLite date() truncates, so we use Math.floor for compatibility
+  const d = new Date(Math.floor(ts) * 1000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 const STATUS_MAP: Record<number, string> = {
@@ -96,13 +105,15 @@ function transformChecklistItem(row: Row): Record<string, unknown> {
     uuid: row.uuid,
     title: row.title,
     status: STATUS_MAP[row.status as number] ?? row.status,
-    created: unixToDatetime(row.creationDate as number | null),
+    // things.py uses userModificationDate for both created and modified
+    created: unixToDatetime(row.userModificationDate as number | null),
     modified: unixToDatetime(row.userModificationDate as number | null),
-    stop_date: unixToDatetime(row.stopDate as number | null),
+    // things.py uses date() not datetime() for checklist stop_date
+    stop_date: unixToDate(row.stopDate as number | null),
   }
 }
 
-class Things {
+export class Things {
   private db: Database
 
   constructor(dbPath: string) {
@@ -328,19 +339,20 @@ class Things {
         ORDER BY task, "index"`,
       )
       .all(...uuids)
-      .map((row) => ({ task: (row as Row).task, ...transformChecklistItem(row as Row) }))
 
     // Group by task UUID
     const byTask = new Map<string, Row[]>()
-    for (const item of items) {
-      const taskUuid = item.task as string
+    for (const row of items) {
+      const taskUuid = (row as Row).task as string
       if (!byTask.has(taskUuid)) byTask.set(taskUuid, [])
-      byTask.get(taskUuid)!.push(item)
+      byTask.get(taskUuid)!.push(transformChecklistItem(row as Row))
     }
 
     for (const task of tasks) {
       const taskItems = byTask.get(task.uuid as string)
-      task.checklist = taskItems && taskItems.length > 0 ? taskItems : null
+      if (taskItems && taskItems.length > 0) {
+        task.checklist = taskItems
+      }
     }
     return tasks
   }
@@ -374,7 +386,7 @@ class Things {
   }
 }
 
-function isoToThingsDate(iso: string): number {
+export function isoToThingsDate(iso: string): number {
   const [y, m, d] = iso.split('-').map(Number)
   return (y << 16) | (m << 12) | (d << 7)
 }
@@ -484,4 +496,4 @@ async function main() {
   }
 }
 
-main()
+if (import.meta.main) main()

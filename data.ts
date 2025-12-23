@@ -8,7 +8,7 @@ import { dateToStr, sortBy } from './util.ts'
 
 const scriptPath = path.join(
   path.dirname(path.fromFileUrl(import.meta.url)),
-  'things_query.py',
+  'things_query.ts',
 )
 
 const status = z.enum(['incomplete', 'completed', 'canceled'])
@@ -45,7 +45,7 @@ const itemBase = z.object({
 
 const todoSchema = itemBase.extend({
   type: z.literal('to-do'),
-  checklist: z.union([z.boolean(), z.array(checklistItemSchema)]).optional(),
+  checklist: z.array(checklistItemSchema).optional(),
   project: z.string().optional(),
   project_title: z.string().optional(),
   heading: z.string().optional(),
@@ -85,24 +85,24 @@ function parseTodo(item: z.infer<typeof todoSchema>) {
 export async function getAllItems(opts: { incompleteOnly?: boolean } = {}) {
   const args = ['todos', '--checklists']
   if (opts.incompleteOnly) args.push('--incomplete')
-  const items = z.array(todoSchema).parse(await $`uv run ${scriptPath} ${args}`.json())
+  const items = z.array(todoSchema).parse(await $`${scriptPath} ${args}`.json())
   return items.map(parseTodo)
 }
 
 export async function getItemByUuid(uuid: string) {
-  const result = await $`uv run ${scriptPath} get ${uuid}`.json()
+  const result = await $`${scriptPath} get ${uuid}`.json()
   if (!result) return null
   return anyItemSchema.parse(result)
 }
 
 export async function getAreas() {
-  const areas = z.array(areaSchema).parse(await $`uv run ${scriptPath} areas`.json())
+  const areas = z.array(areaSchema).parse(await $`${scriptPath} areas`.json())
   return areas.map((a) => a.title).sort()
 }
 
 export async function getProjects() {
   const projects = z.array(projectSchema).parse(
-    await $`uv run ${scriptPath} projects`.json(),
+    await $`${scriptPath} projects`.json(),
   )
   return projects.map((p) => ({
     uuid: p.uuid,
@@ -122,7 +122,7 @@ export type Todo = Awaited<ReturnType<typeof getAllItems>>[number]
 export async function getViewItems(view: ViewName) {
   const items = z
     .array(todoSchema)
-    .parse(await $`uv run ${scriptPath} ${view} --checklists`.json())
+    .parse(await $`${scriptPath} ${view} --checklists`.json())
   return items.map(parseTodo)
 }
 
@@ -132,7 +132,6 @@ const COMP = 'Completions'
 export async function getCounts() {
   const todos = await getAllItems()
 
-  // memoizing here cuts the whole script down from over 1s to like 100ms
   const incrDay = memoize((d: string) => dayjs(d).add(1, 'days').format('YYYY-MM-DD'))
 
   const tomorrow = incrDay(dateToStr(new Date()))
@@ -143,17 +142,10 @@ export async function getCounts() {
 
   const initCounts = (): DateCounts => ({ [TOTAL]: 0, [NO_AREA]: 0, [COMP]: 0 })
 
-  // Create a dataset of days and counts. To start, all I care about is how
-  // many items are open on a given day, i.e., is that date between created and
-  // stop_date, inclusive. If an item is completed on a given day, we should
-  // consider it open on that day and closed on the next
   for (const item of todos) {
     const start = dateToStr(item.created)
-    // if it is incomplete it is open for all days up to today. but
-    // actually go up to tomorrow to see items completed today
     const end = item.stop_date ? dateToStr(item.stop_date) : tomorrow
 
-    // for each date in the range for this item, increment the counts
     for (let date = start; date <= end; date = incrDay(date)) {
       const dateCounts = counts[date] || initCounts()
       dateCounts[item.area_title] = (dateCounts[item.area_title] || 0) + 1
