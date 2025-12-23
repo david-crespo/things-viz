@@ -444,24 +444,7 @@ export type Todo = Awaited<ReturnType<typeof getAllItems>>[number]
 
 export async function getViewItems(view: ViewName) {
   using things = await openThings()
-  let items: Row[]
-  switch (view) {
-    case 'today':
-      items = things.today()
-      break
-    case 'inbox':
-      items = things.inbox()
-      break
-    case 'anytime':
-      items = things.anytime()
-      break
-    case 'upcoming':
-      items = things.upcoming()
-      break
-    case 'someday':
-      items = things.someday()
-      break
-  }
+  const items = things[view]()
   things.attachChecklistItems(items)
   const resolved = resolveAreas(items, things)
   const parsed = z.array(todoSchema).parse(resolved)
