@@ -53,19 +53,24 @@ def main():
         output(things.projects())
 
     elif cmd == "today":
-        output(resolve_areas(filter_todos(things.today())))
+        include_items = "--checklists" in sys.argv
+        output(resolve_areas(filter_todos(things.today(include_items=include_items))))
 
     elif cmd == "inbox":
-        output(resolve_areas(filter_todos(things.inbox())))
+        include_items = "--checklists" in sys.argv
+        output(resolve_areas(filter_todos(things.inbox(include_items=include_items))))
 
     elif cmd == "anytime":
-        output(resolve_areas(filter_todos(things.anytime())))
+        include_items = "--checklists" in sys.argv
+        output(resolve_areas(filter_todos(things.anytime(include_items=include_items))))
 
     elif cmd == "upcoming":
-        output(resolve_areas(filter_todos(things.upcoming())))
+        include_items = "--checklists" in sys.argv
+        output(resolve_areas(filter_todos(things.upcoming(include_items=include_items))))
 
     elif cmd == "someday":
-        output(resolve_areas(filter_todos(things.someday())))
+        include_items = "--checklists" in sys.argv
+        output(resolve_areas(filter_todos(things.someday(include_items=include_items))))
 
     elif cmd == "get":
         if len(sys.argv) < 3:

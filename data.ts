@@ -82,11 +82,8 @@ function parseTodo(item: z.infer<typeof todoSchema>) {
   }
 }
 
-export async function getAllItems(
-  opts: { includeChecklists?: boolean; incompleteOnly?: boolean } = {},
-) {
-  const args = ['todos']
-  if (opts.includeChecklists) args.push('--checklists')
+export async function getAllItems(opts: { incompleteOnly?: boolean } = {}) {
+  const args = ['todos', '--checklists']
   if (opts.incompleteOnly) args.push('--incomplete')
   const items = z.array(todoSchema).parse(await $`uv run ${scriptPath} ${args}`.json())
   return items.map(parseTodo)
@@ -123,7 +120,9 @@ export type ViewName = 'today' | 'inbox' | 'anytime' | 'upcoming' | 'someday'
 export type Todo = Awaited<ReturnType<typeof getAllItems>>[number]
 
 export async function getViewItems(view: ViewName) {
-  const items = z.array(todoSchema).parse(await $`uv run ${scriptPath} ${view}`.json())
+  const items = z
+    .array(todoSchema)
+    .parse(await $`uv run ${scriptPath} ${view} --checklists`.json())
   return items.map(parseTodo)
 }
 

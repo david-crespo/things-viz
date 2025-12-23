@@ -90,6 +90,18 @@ function transformArea(row: Row): Record<string, unknown> {
   }
 }
 
+function transformChecklistItem(row: Row): Record<string, unknown> {
+  return {
+    type: 'checklist-item',
+    uuid: row.uuid,
+    title: row.title,
+    status: STATUS_MAP[row.status as number] ?? row.status,
+    created: unixToDatetime(row.creationDate as number | null),
+    modified: unixToDatetime(row.userModificationDate as number | null),
+    stop_date: unixToDatetime(row.stopDate as number | null),
+  }
+}
+
 class Things {
   private db: Database
 
@@ -297,6 +309,26 @@ class Things {
       .map(transformTask)
   }
 
+  getChecklistItems(taskUuid: string): Row[] {
+    return this.db
+      .prepare(
+        `SELECT uuid, title, status, creationDate, userModificationDate, stopDate
+        FROM TMChecklistItem
+        WHERE task = ?
+        ORDER BY "index"`,
+      )
+      .all(taskUuid)
+      .map(transformChecklistItem)
+  }
+
+  attachChecklistItems(tasks: Row[]): Row[] {
+    for (const task of tasks) {
+      const items = this.getChecklistItems(task.uuid as string)
+      task.checklist = items.length > 0 ? items : null
+    }
+    return tasks
+  }
+
   get(uuid: string): Row | null {
     // Try task first
     const task = this.db
@@ -378,6 +410,7 @@ async function main() {
             ...things.todos({ status: 'canceled', includeItems }),
           ]
         }
+        if (includeItems) things.attachChecklistItems(items)
         result = resolveAreas(items, things)
         break
       }
@@ -387,21 +420,36 @@ async function main() {
       case 'projects':
         result = things.projects()
         break
-      case 'today':
-        result = resolveAreas(things.today(), things)
+      case 'today': {
+        const items = things.today()
+        if (args.includes('--checklists')) things.attachChecklistItems(items)
+        result = resolveAreas(items, things)
         break
-      case 'inbox':
-        result = resolveAreas(things.inbox(), things)
+      }
+      case 'inbox': {
+        const items = things.inbox()
+        if (args.includes('--checklists')) things.attachChecklistItems(items)
+        result = resolveAreas(items, things)
         break
-      case 'anytime':
-        result = resolveAreas(things.anytime(), things)
+      }
+      case 'anytime': {
+        const items = things.anytime()
+        if (args.includes('--checklists')) things.attachChecklistItems(items)
+        result = resolveAreas(items, things)
         break
-      case 'upcoming':
-        result = resolveAreas(things.upcoming(), things)
+      }
+      case 'upcoming': {
+        const items = things.upcoming()
+        if (args.includes('--checklists')) things.attachChecklistItems(items)
+        result = resolveAreas(items, things)
         break
-      case 'someday':
-        result = resolveAreas(things.someday(), things)
+      }
+      case 'someday': {
+        const items = things.someday()
+        if (args.includes('--checklists')) things.attachChecklistItems(items)
+        result = resolveAreas(items, things)
         break
+      }
       case 'get':
         if (args.length < 2) {
           console.error('Usage: things_query.ts get <uuid>')

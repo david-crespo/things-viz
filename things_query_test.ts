@@ -146,3 +146,8 @@ Deno.test('get todo by uuid returns same data', async () => {
   const { py, ts } = await comparePyTs(['get', todos[0].uuid])
   assertEqualWithDiff(ts, py)
 })
+
+Deno.test('today --checklists returns same data', async () => {
+  const { py, ts } = await comparePyTs(['today', '--checklists'])
+  assertEqualWithDiff(ts, py)
+})

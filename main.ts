@@ -74,6 +74,7 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
             start: todo.start,
             start_date: todo.start_date?.toISOString().slice(0, 10) || null,
             deadline: todo.deadline?.toISOString().slice(0, 10) || null,
+            checklist: todo.checklist || null,
           })),
           null,
           2,
@@ -213,9 +214,8 @@ await new Command()
   .option('--all', 'show all items regardless of status')
   .option(formatOption.flags, formatOption.desc, formatOption.opts)
   .action(async (options) => {
-    const includeChecklists = options.format === 'pretty'
     const incompleteOnly = !options.completed && !options.all
-    let todos = await getAllItems({ includeChecklists, incompleteOnly })
+    let todos = await getAllItems({ incompleteOnly })
     if (options.completed) {
       todos = todos.filter((todo) => todo.status === 'completed')
     }
