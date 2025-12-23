@@ -19,10 +19,34 @@
         min-width: 320px;
         min-height: 100vh;
       }
+      #controls {
+        padding: 1rem 20px;
+      }
+      #breakdown-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 0.25rem;
+        padding: 0 20px;
+      }
+      #breakdown-legend label {
+        cursor: pointer;
+        user-select: none;
+        padding: 0.125rem 0.375rem;
+        border-radius: 4px;
+        border: 1px solid transparent;
+      }
+      #breakdown-legend label:hover {
+        border-color: #999;
+      }
+      #legend-help {
+        padding: 0.25rem 20px;
+        color: #666;
+        font-size: 0.8rem;
+      }
     </style>
   </head>
   <body>
-    <div style="padding: 1rem">
+    <div id="controls">
       <label>Start: <input type="date" name="start" onchange="render()" /></label>
       <label>End: <input type="date" name="end" onchange="render()" /></label>
       <button onclick="renderLast(30)">30d</button>
@@ -31,6 +55,8 @@
       <button onclick="renderLast(365 * 2)">2y</button>
       <button onclick="renderAll()">all</button>
     </div>
+    <div id="breakdown-legend"></div>
+    <div id="legend-help">Click to solo, shift+click to toggle</div>
     <div id="plots"></div>
 
     <script type="module">
@@ -59,11 +85,12 @@
         return result
       }
 
-      const getPlot = (title, data) =>
+      const getPlot = (title, data, colorScale) =>
         Plot.plot({
           width: 960,
           style: 'overflow: visible;',
           y: { grid: true },
+          color: colorScale,
           title,
           marks: [
             Plot.lineY(data, { x: 'date', y: 'count', stroke: 'area' }),
@@ -84,6 +111,93 @@
       const getStartInput = () => document.querySelector('input[name=start]')
       const getEndInput = () => document.querySelector('input[name=end]')
 
+      // Track which areas are selected in the breakdown legend
+      let selectedAreas = null // null means all selected
+      let allAreas = [] // store full domain for "show all" behavior
+
+      // Read initial area filter from URL (supports multiple ?area=X&area=Y params)
+      function getUrlAreas() {
+        const params = new URLSearchParams(window.location.search)
+        const areas = params.getAll('area')
+        return areas.length > 0 ? areas : null
+      }
+
+      function updateUrlAreas() {
+        const params = new URLSearchParams(window.location.search)
+        params.delete('area')
+        if (
+          selectedAreas && selectedAreas.size > 0 &&
+          selectedAreas.size < allAreas.length
+        ) {
+          for (const area of selectedAreas) {
+            params.append('area', area)
+          }
+        }
+        const newUrl = params.toString()
+          ? `${window.location.pathname}?${params}`
+          : window.location.pathname
+        window.history.replaceState({}, '', newUrl)
+      }
+
+      function buildLegend(colorScale) {
+        const legendDiv = document.querySelector('#breakdown-legend')
+        if (!colorScale) return
+
+        const { domain, range } = colorScale
+        allAreas = domain
+
+        // Initialize selectedAreas on first render
+        if (selectedAreas === null) {
+          const urlAreas = getUrlAreas()
+          if (urlAreas) {
+            const validAreas = urlAreas.filter((a) => domain.includes(a))
+            selectedAreas = validAreas.length > 0
+              ? new Set(validAreas)
+              : new Set(domain)
+          } else {
+            selectedAreas = new Set(domain)
+          }
+        }
+
+        legendDiv.innerHTML = ''
+        domain.forEach((area, i) => {
+          const label = document.createElement('label')
+
+          const checkbox = document.createElement('input')
+          checkbox.type = 'checkbox'
+          checkbox.checked = selectedAreas.has(area)
+          checkbox.style.accentColor = range[i]
+
+          label.append(checkbox, ' ', area)
+          label.onclick = (e) => {
+            e.preventDefault()
+            if (e.shiftKey) {
+              // Shift+click: toggle this area
+              if (selectedAreas.has(area)) {
+                selectedAreas.delete(area)
+              } else {
+                selectedAreas.add(area)
+              }
+              // If nothing selected, select all
+              if (selectedAreas.size === 0) {
+                selectedAreas = new Set(domain)
+              }
+            } else {
+              // Click: solo this area (or show all if already solo)
+              if (selectedAreas.size === 1 && selectedAreas.has(area)) {
+                selectedAreas = new Set(domain)
+              } else {
+                selectedAreas = new Set([area])
+              }
+            }
+            updateUrlAreas()
+            render()
+          }
+
+          legendDiv.append(label)
+        })
+      }
+
       function render() {
         const start = new Date(getStartInput().value)
         const end = new Date(getEndInput().value)
@@ -92,17 +206,30 @@
           .map(({ date, ...rest }) => ({ date: new Date(date), ...rest }))
           .filter(({ date }) => date >= start && date <= end)
 
-        const breakdownPlot = getPlot(
-          'Breakdown',
-          allData.filter(({ area }) => area !== 'Total' && area !== 'Completions'),
+        const breakdownData = allData.filter(
+          ({ area }) => area !== 'Total' && area !== 'Completions',
         )
+
+        // First render with all data to get color scale for legend
+        const fullBreakdownPlot = getPlot('Items by Area', breakdownData)
+        const colorScale = fullBreakdownPlot.scale('color')
+        buildLegend(colorScale)
+
+        // Now filter by selected areas
+        const filteredBreakdownData = selectedAreas === null
+          ? breakdownData
+          : breakdownData.filter(({ area }) => selectedAreas.has(area))
+
+        // Pass fixed color scale so colors don't shift when filtering
+        const breakdownPlot = getPlot(
+          'Items by Area',
+          filteredBreakdownData,
+          colorScale,
+        )
+
         const totalPlot = getPlot(
           'Total',
           allData.filter(({ area }) => area === 'Total'),
-        )
-        const oxidePlot = getPlot(
-          'Oxide',
-          allData.filter(({ area }) => area === 'Oxide'),
         )
 
         const completionsData = allData.filter(({ area }) => area === 'Completions')
@@ -124,7 +251,6 @@
         div.innerHTML = ''
         div.append(breakdownPlot)
         div.append(totalPlot)
-        div.append(oxidePlot)
         div.append(completionsPlot)
       }
 
