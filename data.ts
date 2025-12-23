@@ -1,15 +1,9 @@
-import * as path from '@std/path'
-import $ from 'dax'
 import dayjs from 'dayjs'
 import memoize from 'memoize'
 import { z } from 'zod'
 
 import { dateToStr, sortBy } from './util.ts'
-
-const scriptPath = path.join(
-  path.dirname(path.fromFileUrl(import.meta.url)),
-  'things_query.ts',
-)
+import { findDatabasePath, resolveAreas, Things } from './things_query.ts'
 
 const status = z.enum(['incomplete', 'completed', 'canceled'])
 
@@ -82,48 +76,92 @@ function parseTodo(item: z.infer<typeof todoSchema>) {
   }
 }
 
+async function withThings<T>(fn: (things: Things) => T): Promise<T> {
+  const dbPath = await findDatabasePath()
+  const things = new Things(dbPath)
+  try {
+    return fn(things)
+  } finally {
+    things.close()
+  }
+}
+
 export async function getAllItems(opts: { incompleteOnly?: boolean } = {}) {
-  const args = ['todos', '--checklists']
-  if (opts.incompleteOnly) args.push('--incomplete')
-  const items = z.array(todoSchema).parse(await $`${scriptPath} ${args}`.json())
-  return items.map(parseTodo)
+  return await withThings((things) => {
+    let items = things.todos({ status: 'incomplete' })
+    if (!opts.incompleteOnly) {
+      items = [
+        ...items,
+        ...things.todos({ status: 'completed' }),
+        ...things.todos({ status: 'canceled' }),
+      ]
+    }
+    things.attachChecklistItems(items)
+    const resolved = resolveAreas(items, things)
+    const parsed = z.array(todoSchema).parse(resolved)
+    return parsed.map(parseTodo)
+  })
 }
 
 export async function getItemByUuid(uuid: string) {
-  const result = await $`${scriptPath} get ${uuid}`.json()
-  if (!result) return null
-  return anyItemSchema.parse(result)
+  return await withThings((things) => {
+    const result = things.get(uuid)
+    if (!result) return null
+    return anyItemSchema.parse(result)
+  })
 }
 
 export async function getAreas() {
-  const areas = z.array(areaSchema).parse(await $`${scriptPath} areas`.json())
-  return areas.map((a) => a.title).sort()
+  return await withThings((things) => {
+    const areas = z.array(areaSchema).parse(things.areas())
+    return areas.map((a) => a.title).sort()
+  })
 }
 
 export async function getProjects() {
-  const projects = z.array(projectSchema).parse(
-    await $`${scriptPath} projects`.json(),
-  )
-  return projects.map((p) => ({
-    uuid: p.uuid,
-    title: p.title,
-    status: p.status,
-    area_title: p.area_title ?? NO_AREA,
-    start: p.start,
-    start_date: parseDate(p.start_date),
-    deadline: parseDate(p.deadline),
-    created: parseDate(p.created)!,
-  }))
+  return await withThings((things) => {
+    const projects = z.array(projectSchema).parse(things.projects())
+    return projects.map((p) => ({
+      uuid: p.uuid,
+      title: p.title,
+      status: p.status,
+      area_title: p.area_title ?? NO_AREA,
+      start: p.start,
+      start_date: parseDate(p.start_date),
+      deadline: parseDate(p.deadline),
+      created: parseDate(p.created)!,
+    }))
+  })
 }
 
 export type ViewName = 'today' | 'inbox' | 'anytime' | 'upcoming' | 'someday'
 export type Todo = Awaited<ReturnType<typeof getAllItems>>[number]
 
 export async function getViewItems(view: ViewName) {
-  const items = z
-    .array(todoSchema)
-    .parse(await $`${scriptPath} ${view} --checklists`.json())
-  return items.map(parseTodo)
+  return await withThings((things) => {
+    let items: Record<string, unknown>[]
+    switch (view) {
+      case 'today':
+        items = things.today()
+        break
+      case 'inbox':
+        items = things.inbox()
+        break
+      case 'anytime':
+        items = things.anytime()
+        break
+      case 'upcoming':
+        items = things.upcoming()
+        break
+      case 'someday':
+        items = things.someday()
+        break
+    }
+    things.attachChecklistItems(items)
+    const resolved = resolveAreas(items, things)
+    const parsed = z.array(todoSchema).parse(resolved)
+    return parsed.map(parseTodo)
+  })
 }
 
 const TOTAL = 'Total'

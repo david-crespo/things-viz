@@ -1,5 +1,3 @@
-#!/usr/bin/env -S deno run --allow-read --allow-env --allow-write --allow-ffi --allow-net
-
 import { Database } from '@db/sqlite'
 import { expandGlob } from '@std/fs/expand-glob'
 
@@ -398,7 +396,7 @@ function localDateStr(): string {
 }
 
 // Resolve area_title for items that have a project but no direct area
-function resolveAreas(items: Row[], things: Things): Row[] {
+export function resolveAreas(items: Row[], things: Things): Row[] {
   const needsLookup = items.filter((i) => i.project && !i.area_title)
   if (needsLookup.length === 0) return items
 
@@ -408,92 +406,3 @@ function resolveAreas(items: Row[], things: Things): Row[] {
   }
   return items
 }
-
-async function main() {
-  const args = Deno.args
-  if (args.length < 1) {
-    console.error('Usage: things_query.ts <command> [args]')
-    console.error(
-      'Commands: todos, areas, projects, today, inbox, anytime, upcoming, someday, get',
-    )
-    Deno.exit(1)
-  }
-
-  const cmd = args[0]
-  const dbPath = await findDatabasePath()
-  const things = new Things(dbPath)
-
-  try {
-    let result: unknown
-
-    switch (cmd) {
-      case 'todos': {
-        const includeChecklists = args.includes('--checklists')
-        const incompleteOnly = args.includes('--incomplete')
-        let items = things.todos({ status: 'incomplete' })
-        if (!incompleteOnly) {
-          items = [
-            ...items,
-            ...things.todos({ status: 'completed' }),
-            ...things.todos({ status: 'canceled' }),
-          ]
-        }
-        if (includeChecklists) things.attachChecklistItems(items)
-        result = resolveAreas(items, things)
-        break
-      }
-      case 'areas':
-        result = things.areas()
-        break
-      case 'projects':
-        result = things.projects()
-        break
-      case 'today': {
-        const items = things.today()
-        if (args.includes('--checklists')) things.attachChecklistItems(items)
-        result = resolveAreas(items, things)
-        break
-      }
-      case 'inbox': {
-        const items = things.inbox()
-        if (args.includes('--checklists')) things.attachChecklistItems(items)
-        result = resolveAreas(items, things)
-        break
-      }
-      case 'anytime': {
-        const items = things.anytime()
-        if (args.includes('--checklists')) things.attachChecklistItems(items)
-        result = resolveAreas(items, things)
-        break
-      }
-      case 'upcoming': {
-        const items = things.upcoming()
-        if (args.includes('--checklists')) things.attachChecklistItems(items)
-        result = resolveAreas(items, things)
-        break
-      }
-      case 'someday': {
-        const items = things.someday()
-        if (args.includes('--checklists')) things.attachChecklistItems(items)
-        result = resolveAreas(items, things)
-        break
-      }
-      case 'get':
-        if (args.length < 2) {
-          console.error('Usage: things_query.ts get <uuid>')
-          Deno.exit(1)
-        }
-        result = things.get(args[1])
-        break
-      default:
-        console.error(`Unknown command: ${cmd}`)
-        Deno.exit(1)
-    }
-
-    console.log(JSON.stringify(result))
-  } finally {
-    things.close()
-  }
-}
-
-if (import.meta.main) main()
