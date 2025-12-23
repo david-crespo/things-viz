@@ -1,4 +1,4 @@
-#!/usr/bin/env deno run --allow-net --allow-env --allow-read --allow-write --allow-run=uv,open,npm
+#!/usr/bin/env deno run --allow-net --allow-env --allow-ffi --allow-read --allow-run=open
 
 import { z } from 'zod'
 import { match } from 'ts-pattern'

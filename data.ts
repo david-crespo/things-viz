@@ -65,43 +65,42 @@ async function findDatabasePath(): Promise<string> {
 
   const pattern =
     '~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-*/Things Database.thingsdatabase/main.sqlite'
-  const expanded = pattern.replace('~', Deno.env.get('HOME') || '')
+      .replace('~', Deno.env.get('HOME') || '')
 
-  for await (const entry of expandGlob(expanded)) {
+  for await (const entry of expandGlob(pattern)) {
     return entry.path
   }
   throw new Error('Things database not found')
 }
 
 // Date conversions - output string format for zod validation
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
 function thingsDateToIso(td: number | null): string | null {
   if (!td) return null
   const year = (td >> 16) & 0x7ff
   const month = (td >> 12) & 0xf
   const day = (td >> 7) & 0x1f
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  return `${year}-${pad2(month)}-${pad2(day)}`
 }
 
 function unixToDatetime(ts: number | null): string | null {
   if (!ts) return null
   const d = new Date(Math.floor(ts) * 1000)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${
-    pad(d.getHours())
-  }:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${
+    pad2(d.getHours())
+  }:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
 }
 
 function unixToDate(ts: number | null): string | null {
   if (!ts) return null
   const d = new Date(Math.floor(ts) * 1000)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
 
-// Convert string date to Date object
 function parseDate(s: string | null | undefined): Date | null {
   if (!s) return null
-  return new Date(s.replace(' ', 'T'))
+  return new Date(s)
 }
 
 const STATUS_MAP: Record<number, string> = {
@@ -153,6 +152,8 @@ function transformArea(row: Row): Record<string, unknown> {
   }
 }
 
+// userModificationDate for both created and modified matches things.py behavior:
+// https://github.com/thingsapi/things.py/blob/d5b27343/things/database.py#L415-L418
 function transformChecklistItem(row: Row): Record<string, unknown> {
   return {
     type: 'checklist-item',
@@ -172,8 +173,7 @@ function isoToThingsDate(iso: string): number {
 
 function localDateStr(): string {
   const d = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
 
 // Convert validated zod todo to final typed format
