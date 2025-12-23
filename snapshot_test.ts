@@ -19,8 +19,8 @@ function toSnapshot(todos: Todo[]) {
     area: todo.area_title,
     project: todo.project_title || null,
     notes: todo.notes || null,
-    created: todo.created.toISOString().slice(0, 10),
-    modified: todo.modified?.toISOString().slice(0, 10) || null,
+    created: todo.created.toISOString(),
+    modified: todo.modified?.toISOString() || null,
     start: todo.start,
     start_date: todo.start_date?.toISOString().slice(0, 10) || null,
     deadline: todo.deadline?.toISOString().slice(0, 10) || null,
@@ -59,7 +59,7 @@ Deno.test('projects', async (t) => {
     start: p.start,
     start_date: p.start_date?.toISOString().slice(0, 10) || null,
     deadline: p.deadline?.toISOString().slice(0, 10) || null,
-    created: p.created?.toISOString().slice(0, 10) || null,
+    created: p.created?.toISOString() || null,
   }))
   await assertSnapshot(t, snapshot)
 })

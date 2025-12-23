@@ -86,16 +86,7 @@ function thingsDateToIso(td: number | null): string | null {
 
 function unixToDatetime(ts: number | null): string | null {
   if (!ts) return null
-  const d = new Date(Math.floor(ts) * 1000)
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${
-    pad2(d.getHours())
-  }:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
-}
-
-function unixToDate(ts: number | null): string | null {
-  if (!ts) return null
-  const d = new Date(Math.floor(ts) * 1000)
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+  return new Date(Math.floor(ts) * 1000).toISOString()
 }
 
 function parseDate(s: string | null | undefined): Date | null {
@@ -162,7 +153,7 @@ function transformChecklistItem(row: Row): Record<string, unknown> {
     status: STATUS_MAP[row.status as number] ?? row.status,
     created: unixToDatetime(row.userModificationDate as number | null),
     modified: unixToDatetime(row.userModificationDate as number | null),
-    stop_date: unixToDate(row.stopDate as number | null),
+    stop_date: unixToDatetime(row.stopDate as number | null),
   }
 }
 
