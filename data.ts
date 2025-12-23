@@ -4,8 +4,6 @@ import dayjs from 'dayjs'
 import memoize from 'memoize'
 import { z } from 'zod'
 
-import { dateToStr, sortBy } from './util.ts'
-
 export const NO_AREA = 'No area'
 
 // Zod schemas for runtime validation
@@ -222,12 +220,8 @@ class Things {
     this.db = new Database(dbPath, { readonly: true })
   }
 
-  close() {
-    this.db.close()
-  }
-
   [Symbol.dispose]() {
-    this.close()
+    this.db.close()
   }
 
   areas(): Row[] {
@@ -451,6 +445,8 @@ export async function getViewItems(view: ViewName) {
   return parsed.map(parseTodo)
 }
 
+const dateToStr = (d: Date) => d.toISOString().slice(0, 10)
+
 const TOTAL = 'Total'
 const COMP = 'Completions'
 
@@ -486,5 +482,5 @@ export async function getCounts() {
     ) => ({ date, ...value }),
   )
 
-  return sortBy(rows, (c) => c.date)
+  return rows.toSorted((a, b) => a.date.localeCompare(b.date))
 }
