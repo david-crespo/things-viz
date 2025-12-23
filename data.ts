@@ -226,6 +226,10 @@ class Things {
     this.db.close()
   }
 
+  [Symbol.dispose]() {
+    this.close()
+  }
+
   areas(): Row[] {
     return this.db
       .prepare(`SELECT uuid, title FROM TMArea ORDER BY "index"`)
@@ -386,92 +390,82 @@ function resolveAreas(items: Row[], things: Things): Row[] {
 
 // Public API
 
-async function withThings<T>(fn: (things: Things) => T): Promise<T> {
+async function openThings() {
   const dbPath = await findDatabasePath()
-  const things = new Things(dbPath)
-  try {
-    return fn(things)
-  } finally {
-    things.close()
-  }
+  return new Things(dbPath)
 }
 
 export async function getAllItems(opts: { incompleteOnly?: boolean } = {}) {
-  return await withThings((things) => {
-    let items = things.todos({ status: 'incomplete' })
-    if (!opts.incompleteOnly) {
-      items = [
-        ...items,
-        ...things.todos({ status: 'completed' }),
-        ...things.todos({ status: 'canceled' }),
-      ]
-    }
-    things.attachChecklistItems(items)
-    const resolved = resolveAreas(items, things)
-    const parsed = z.array(todoSchema).parse(resolved)
-    return parsed.map(parseTodo)
-  })
+  using things = await openThings()
+  let items = things.todos({ status: 'incomplete' })
+  if (!opts.incompleteOnly) {
+    items = [
+      ...items,
+      ...things.todos({ status: 'completed' }),
+      ...things.todos({ status: 'canceled' }),
+    ]
+  }
+  things.attachChecklistItems(items)
+  const resolved = resolveAreas(items, things)
+  const parsed = z.array(todoSchema).parse(resolved)
+  return parsed.map(parseTodo)
 }
 
 export async function getItemByUuid(uuid: string) {
-  return await withThings((things) => {
-    const result = things.get(uuid)
-    if (!result) return null
-    return anyItemSchema.parse(result)
-  })
+  using things = await openThings()
+  const result = things.get(uuid)
+  if (!result) return null
+  return anyItemSchema.parse(result)
 }
 
 export async function getAreas() {
-  return await withThings((things) => {
-    const areas = z.array(areaSchema).parse(things.areas())
-    return areas.map((a) => a.title).sort()
-  })
+  using things = await openThings()
+  const areas = z.array(areaSchema).parse(things.areas())
+  return areas.map((a) => a.title).sort()
 }
 
 export async function getProjects() {
-  return await withThings((things) => {
-    const projects = z.array(projectSchema).parse(things.projects())
-    return projects.map((p) => ({
-      uuid: p.uuid,
-      title: p.title,
-      status: p.status,
-      area_title: p.area_title ?? NO_AREA,
-      start: p.start,
-      start_date: parseDate(p.start_date),
-      deadline: parseDate(p.deadline),
-      created: parseDate(p.created)!,
-    }))
-  })
+  using things = await openThings()
+  const projects = z.array(projectSchema).parse(things.projects())
+  return projects.map((p) => ({
+    uuid: p.uuid,
+    title: p.title,
+    status: p.status,
+    area_title: p.area_title ?? NO_AREA,
+    start: p.start,
+    start_date: parseDate(p.start_date),
+    deadline: parseDate(p.deadline),
+    created: parseDate(p.created)!,
+  }))
 }
 
 export type ViewName = 'today' | 'inbox' | 'anytime' | 'upcoming' | 'someday'
 export type Todo = Awaited<ReturnType<typeof getAllItems>>[number]
 
 export async function getViewItems(view: ViewName) {
-  return await withThings((things) => {
-    let items: Row[]
-    switch (view) {
-      case 'today':
-        items = things.today()
-        break
-      case 'inbox':
-        items = things.inbox()
-        break
-      case 'anytime':
-        items = things.anytime()
-        break
-      case 'upcoming':
-        items = things.upcoming()
-        break
-      case 'someday':
-        items = things.someday()
-        break
-    }
-    things.attachChecklistItems(items)
-    const resolved = resolveAreas(items, things)
-    const parsed = z.array(todoSchema).parse(resolved)
-    return parsed.map(parseTodo)
-  })
+  using things = await openThings()
+  let items: Row[]
+  switch (view) {
+    case 'today':
+      items = things.today()
+      break
+    case 'inbox':
+      items = things.inbox()
+      break
+    case 'anytime':
+      items = things.anytime()
+      break
+    case 'upcoming':
+      items = things.upcoming()
+      break
+    case 'someday':
+      items = things.someday()
+      break
+  }
+  things.attachChecklistItems(items)
+  const resolved = resolveAreas(items, things)
+  const parsed = z.array(todoSchema).parse(resolved)
+  return parsed.map(parseTodo)
 }
 
 const TOTAL = 'Total'
