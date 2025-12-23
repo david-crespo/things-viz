@@ -1,6 +1,5 @@
 #!/usr/bin/env deno run --allow-net --allow-env --allow-read --allow-write --allow-run=uv,open,npm
 
-import * as path from '@std/path'
 import { z } from 'zod'
 import { match } from 'ts-pattern'
 import { Command, ValidationError } from '@cliffy/command'
@@ -17,11 +16,7 @@ import {
   type Todo,
   type ViewName,
 } from './data.ts'
-
-function relToAbs(relPath: string) {
-  const currFile = path.fromFileUrl(import.meta.url)
-  return path.join(path.dirname(currFile), relPath)
-}
+import plotTemplate from './plot.html' with { type: 'text' }
 
 if (!import.meta.main) Deno.exit()
 
@@ -179,17 +174,17 @@ await new Command()
   .reset()
   .command('plot')
   .description('runs server showing plot')
-  .action(async () => {
-    const template = await Deno.readTextFile(relToAbs('./plot.html'))
-    console.log('Plot server running at http://localhost:8000')
-    Deno.serve({ port: 8000 }, async () => {
+  .action(() => {
+    const server = Deno.serve(async () => {
       const counts = await getCounts()
       const plotData = counts.flatMap(({ date, ...dateCounts }) =>
         Object.entries(dateCounts).map(([area, count]) => ({ date, area, count }))
       )
-      const html = template.replace('/*__DATA__*/ []', JSON.stringify(plotData))
+      const html = plotTemplate.replace('/*__DATA__*/ []', JSON.stringify(plotData))
       return new Response(html, { headers: { 'content-type': 'text/html' } })
     })
+    const { hostname, port } = server.addr
+    new Deno.Command('open', { args: [`http://${hostname}:${port}`] }).spawn()
   })
   .reset()
   .command('done')

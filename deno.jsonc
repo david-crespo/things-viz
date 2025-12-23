@@ -1,4 +1,5 @@
 {
+  "unstable": ["raw-imports"],
   "tasks": {
     "check": "deno check *.ts*"
   },
