@@ -29,6 +29,7 @@
       <button onclick="renderLast(90)">90d</button>
       <button onclick="renderLast(365)">1y</button>
       <button onclick="renderLast(365 * 2)">2y</button>
+      <button onclick="renderAll()">all</button>
     </div>
     <div id="plots"></div>
 
@@ -142,8 +143,15 @@
 
       renderLast(365)
 
+      function renderAll() {
+        getStartInput().value = rawData[0].date
+        getEndInput().value = dateToStr(daysAgo(-1))
+        render()
+      }
+
       window.render = render
       window.renderLast = renderLast
+      window.renderAll = renderAll
     </script>
   </body>
 </html>
