@@ -3,8 +3,8 @@
 This is a minimal read-only CLI for [Things 3](https://culturedcode.com/things/) data
 written in TypeScript with [Deno](https://docs.deno.com/runtime/). The goal was originally
 to generate charts showing trends in the number of tasks and the rate of completion (e.g.,
-to see whether I'm even making a dent when I cancel 20 old tasks). More recently, more
-comprehensive coverage of Things views like Inbox and Today was added to give LLM agents the
+to see whether I'm even making a dent when I cancel 20 old tasks). More recently, I've added 
+comprehensive coverage of Things views like Inbox and Today to give LLM agents the
 ability to help with GTD-style task management.
 
 ## How to use
