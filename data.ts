@@ -404,6 +404,16 @@ export async function getItemByUuid(uuid: string) {
   return anyItemSchema.parse(result)
 }
 
+export async function getTodoByUuid(uuid: string): Promise<Todo | null> {
+  using things = await openThings()
+  const result = things.get(uuid)
+  if (!result || result.type !== 'to-do') return null
+  things.attachChecklistItems([result])
+  const resolved = resolveAreas([result], things)
+  const parsed = todoSchema.parse(resolved[0])
+  return parseTodo(parsed)
+}
+
 export async function getAreas() {
   using things = await openThings()
   const areas = z.array(areaSchema).parse(things.areas())

@@ -11,6 +11,7 @@ import {
   getCounts,
   getItemByUuid,
   getProjects,
+  getTodoByUuid,
   getViewItems,
   NO_AREA,
   type Todo,
@@ -90,6 +91,7 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
     })
     .with('tsv', () => {
       const headers = [
+        'uuid',
         'created',
         ...(showArea ? ['area'] : []),
         'project',
@@ -99,6 +101,7 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
         'deadline',
       ]
       const rows = todos.map((todo) => [
+        todo.uuid,
         todo.created.toISOString().slice(0, 10),
         ...(showArea ? [todo.area_title] : []),
         todo.project_title,
@@ -361,6 +364,28 @@ await new Command()
         }
         const url = `things:///show?id=${uuid}`
         console.log(`\x1b]8;;${url}\x1b\\\x1b[34m${item.title}\x1b[0m\x1b]8;;\x1b\\`)
+      }),
+  )
+  .command(
+    'item',
+    new Command()
+      .description('show a single item by uuid')
+      .arguments('<uuid:string>')
+      .option(formatOption.flags, formatOption.desc, formatOption.opts)
+      .action(async ({ format }, uuid: string) => {
+        const item = await getItemByUuid(uuid)
+        if (!item) {
+          console.error(`Item not found: ${uuid}`)
+          Deno.exit(1)
+        }
+        if (item.type === 'to-do') {
+          const todo = await getTodoByUuid(uuid)
+          renderTodos([todo!], format)
+        } else if (item.type === 'project') {
+          console.log(`[Project] ${item.title}`)
+        } else if (item.type === 'area') {
+          console.log(`[Area] ${item.title}`)
+        }
       }),
   )
   .parse(Deno.args)
