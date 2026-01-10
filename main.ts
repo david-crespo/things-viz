@@ -182,16 +182,30 @@ await new Command()
   .command('plot')
   .description('run server showing plot')
   .action(() => {
-    const server = Deno.serve(async () => {
+    const serveOptions = { hostname: '0.0.0.0', port: 8000 }
+    const url = `http://${serveOptions.hostname}:${serveOptions.port}`
+
+    async function handler() {
       const counts = await getCounts()
       const plotData = counts.flatMap(({ date, ...dateCounts }) =>
         Object.entries(dateCounts).map(([area, count]) => ({ date, area, count }))
       )
       const html = plotTemplate.replace('/*__DATA__*/ []', JSON.stringify(plotData))
       return new Response(html, { headers: { 'content-type': 'text/html' } })
-    })
-    const { hostname, port } = server.addr
-    new Deno.Command('open', { args: [`http://${hostname}:${port}`] }).spawn()
+    }
+
+    try {
+      Deno.serve(serveOptions, handler)
+    } catch (e) {
+      if (e instanceof Deno.errors.AddrInUse) {
+        console.error(`Server already running at ${url}. Opening...`)
+        // still open it
+        new Deno.Command('open', { args: [url] }).spawn()
+        return
+      }
+      throw e
+    }
+    new Deno.Command('open', { args: [url] }).spawn()
   })
   .reset()
   .command('done')
