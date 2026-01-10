@@ -57,6 +57,9 @@ safe). See [`data.ts`](./data.ts).
 ## History
 
 This was initially built around shelling out to the excellent
-[`things-cli`](https://github.com/thingsapi/things-cli) to retrieve the data in JSON format.
-In order to remove that external dependency, I then used LLMs to port the data layer to
-TypeScript, iterating on the SQLite queries until the output matched the original.
+[`things-cli`](https://github.com/thingsapi/things-cli) (powered by
+[`things.py`](https://github.com/thingsapi/things.py)) to retrieve the data
+in JSON format. In order to remove that external dependency, I then used LLMs
+to port the data layer to TypeScript, iterating on the SQLite queries until
+the output matched the original. SQL queries from `things.py` were not copied
+directly.
