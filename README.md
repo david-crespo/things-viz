@@ -37,6 +37,9 @@ Commands:
   item      <uuid>  - show a single item by uuid
 ```
 
+<img width="994" height="639" alt="tviz plot showing line graph of items by area over time" src="https://github.com/user-attachments/assets/b62073be-82e8-45f8-bea7-a05167ad14fa" />
+
+
 ## How to use
 
 1. [Install Deno](https://docs.deno.com/runtime/getting_started/installation/)
