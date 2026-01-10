@@ -7,6 +7,36 @@ to see whether I'm even making a dent when I cancel 20 old tasks). More recently
 comprehensive coverage of Things views like Inbox and Today to give LLM agents the
 ability to help with GTD-style task management.
 
+```
+$ tviz -h
+
+Usage: tviz
+
+Description:
+
+  Visualize Things 3 data
+
+Options:
+
+  -h, --help  - Show this help.
+
+Commands:
+
+  table             - print table of the last 30 days
+  plot              - run server showing plot
+  done      [area]  - list recent done items
+  todos             - list items
+  areas             - list all areas
+  projects          - list projects
+  today             - list tasks in Today view
+  inbox             - list tasks in Inbox
+  anytime           - list tasks in Anytime view (no schedule, ready to do)
+  upcoming          - list tasks in Upcoming view (scheduled for future)
+  someday           - list tasks in Someday view (deferred)
+  link      <uuid>  - output OSC 8 hyperlink for a Things item
+  item      <uuid>  - show a single item by uuid
+```
+
 ## How to use
 
 1. [Install Deno](https://docs.deno.com/runtime/getting_started/installation/)
