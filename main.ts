@@ -33,7 +33,7 @@ function parseFormat(format: string) {
 
 const formatOption = {
   flags: '-f, --format <format:string>',
-  desc: 'output format: short, pretty, json, tsv',
+  desc: 'short, pretty, json, tsv',
   opts: { default: 'short' as const, value: parseFormat },
 } as const
 
@@ -79,6 +79,7 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
             notes: todo.notes || null,
             created: todo.created.toISOString(),
             modified: todo.modified?.toISOString() || null,
+            stop_date: todo.stop_date?.toISOString().slice(0, 10) || null,
             start: todo.start,
             start_date: todo.start_date?.toISOString().slice(0, 10) || null,
             deadline: todo.deadline?.toISOString().slice(0, 10) || null,
@@ -93,6 +94,7 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
       const headers = [
         'uuid',
         'created',
+        'stop_date',
         ...(showArea ? ['area'] : []),
         'project',
         'heading',
@@ -103,6 +105,7 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
       const rows = todos.map((todo) => [
         todo.uuid,
         todo.created.toISOString().slice(0, 10),
+        todo.stop_date?.toISOString().slice(0, 10),
         ...(showArea ? [todo.area_title] : []),
         todo.project_title,
         todo.heading_title,
@@ -119,6 +122,7 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
         const heading = todo.heading_title ? ` > ${todo.heading_title}` : ''
         const location = area || project ? `[${area}${project}${heading}] ` : ''
         const dates = [
+          todo.stop_date ? `done: ${todo.stop_date.toISOString().slice(0, 10)}` : null,
           todo.start !== 'Anytime' ? todo.start.toLowerCase() : null,
           todo.start_date
             ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}`
@@ -142,6 +146,7 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
         const dates = [
           `created: ${created}`,
           todo.modified ? `modified: ${todo.modified.toISOString().slice(0, 10)}` : null,
+          todo.stop_date ? `done: ${todo.stop_date.toISOString().slice(0, 10)}` : null,
           todo.start !== 'Anytime' ? `when: ${todo.start}` : null,
           todo.start_date
             ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}`
@@ -208,23 +213,21 @@ await new Command()
     new Deno.Command('open', { args: [url] }).spawn()
   })
   .reset()
-  .command('done')
-  .description('list recent done items')
-  .arguments('[area:string]')
-  .action(async (_options, area?: string) => {
+  .command('logbook')
+  .description('list completed items')
+  .option('-a, --area <area:string>', 'filter by area name')
+  .option('-n, --limit <limit:integer>', 'max items to show', { default: 50 })
+  .option(formatOption.flags, formatOption.desc, formatOption.opts)
+  .action(async ({ area, limit, format }) => {
     let todos = (await getAllItems()).filter((todo) => todo.status === 'completed')
     if (area) {
       todos = todos.filter((todo) => todo.area_title.toLowerCase() === area.toLowerCase())
     }
-    todos
+    todos = todos
       .filter((todo) => todo.stop_date !== null)
       .sort((a, b) => b.stop_date!.getTime() - a.stop_date!.getTime())
-      .slice(0, 220)
-      .forEach((todo) => {
-        const date = todo.stop_date!.toISOString().slice(0, 10)
-        const project = todo.project_title ? `[${todo.project_title}] ` : ''
-        console.log(`${date} ${project}${todo.title}`)
-      })
+      .slice(0, limit)
+    renderTodos(todos, format, !area)
   })
   .reset()
   .command('todos')

@@ -3,9 +3,9 @@
 This is a minimal read-only CLI for [Things 3](https://culturedcode.com/things/) data
 written in TypeScript with [Deno](https://docs.deno.com/runtime/). The goal was originally
 to generate charts showing trends in the number of tasks and the rate of completion (e.g.,
-to see whether I'm even making a dent when I cancel 20 old tasks). More recently, I've added 
-comprehensive coverage of Things views like Inbox and Today to give LLM agents the
-ability to help with GTD-style task management.
+to see whether I'm even making a dent when I cancel 20 old tasks). More recently, I've added
+comprehensive coverage of Things views like Inbox and Today to give LLM agents the ability
+to help with GTD-style task management.
 
 ```
 $ tviz -h
@@ -39,7 +39,6 @@ Commands:
 
 <img width="994" height="639" alt="tviz plot showing line graph of items by area over time" src="https://github.com/user-attachments/assets/b62073be-82e8-45f8-bea7-a05167ad14fa" />
 
-
 ## How to use
 
 1. [Install Deno](https://docs.deno.com/runtime/getting_started/installation/)
@@ -58,8 +57,7 @@ safe). See [`data.ts`](./data.ts).
 
 This was initially built around shelling out to the excellent
 [`things-cli`](https://github.com/thingsapi/things-cli) (powered by
-[`things.py`](https://github.com/thingsapi/things.py)) to retrieve the data
-in JSON format. In order to remove that external dependency, I then used LLMs
-to port the data layer to TypeScript, iterating on the SQLite queries until
-the output matched the original. SQL queries from `things.py` were not copied
-directly.
+[`things.py`](https://github.com/thingsapi/things.py)) to retrieve the data in JSON format.
+In order to remove that external dependency, I then used LLMs to port the data layer to
+TypeScript, iterating on the SQLite queries until the output matched the original. SQL
+queries from `things.py` were not copied directly.
