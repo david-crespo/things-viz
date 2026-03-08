@@ -121,8 +121,9 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
         const project = todo.project_title ? ` > ${todo.project_title}` : ''
         const heading = todo.heading_title ? ` > ${todo.heading_title}` : ''
         const location = area || project ? `[${area}${project}${heading}] ` : ''
+        const doneLabel = todo.status === 'canceled' ? 'canceled' : 'done'
         const dates = [
-          todo.stop_date ? `done: ${todo.stop_date.toISOString().slice(0, 10)}` : null,
+          todo.stop_date ? `${doneLabel}: ${todo.stop_date.toISOString().slice(0, 10)}` : null,
           todo.start !== 'Anytime' ? todo.start.toLowerCase() : null,
           todo.start_date
             ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}`
@@ -143,10 +144,11 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
 
         if (i > 0) console.log()
         console.log(`${location}${todo.title}`)
+        const doneLabel = todo.status === 'canceled' ? 'canceled' : 'done'
         const dates = [
           `created: ${created}`,
           todo.modified ? `modified: ${todo.modified.toISOString().slice(0, 10)}` : null,
-          todo.stop_date ? `done: ${todo.stop_date.toISOString().slice(0, 10)}` : null,
+          todo.stop_date ? `${doneLabel}: ${todo.stop_date.toISOString().slice(0, 10)}` : null,
           todo.start !== 'Anytime' ? `when: ${todo.start}` : null,
           todo.start_date
             ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}`
@@ -219,7 +221,9 @@ await new Command()
   .option('-n, --limit <limit:integer>', 'max items to show', { default: 50 })
   .option(formatOption.flags, formatOption.desc, formatOption.opts)
   .action(async ({ area, limit, format }) => {
-    let todos = (await getAllItems()).filter((todo) => todo.status === 'completed')
+    let todos = (await getAllItems()).filter(
+      (todo) => todo.status === 'completed' || todo.status === 'canceled',
+    )
     if (area) {
       todos = todos.filter((todo) => todo.area_title.toLowerCase() === area.toLowerCase())
     }
