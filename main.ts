@@ -1,9 +1,11 @@
-#!/usr/bin/env deno run --allow-net=0.0.0.0:8000 --allow-env=THINGSDB,HOME --allow-read --allow-run=open
+#!/usr/bin/env deno run --allow-net=0.0.0.0:8000 --allow-env=THINGSDB,HOME,THINGS_TOKEN --allow-read --allow-run=open
 
 import { z } from 'zod'
 import { match } from 'ts-pattern'
 import { Command, ValidationError } from '@cliffy/command'
 import { Table } from '@cliffy/table'
+
+import { load as loadEnv } from '@std/dotenv'
 
 import {
   getAllItems,
@@ -21,6 +23,17 @@ import plotTemplate from './plot.html' with { type: 'text' }
 
 if (!import.meta.main) Deno.exit()
 
+await loadEnv({ envPath: `${import.meta.dirname}/.env`, export: true })
+
+function requireToken(): string {
+  const token = Deno.env.get('THINGS_TOKEN')
+  if (!token) {
+    console.error('THINGS_TOKEN required. Set it in env or .env file.')
+    Deno.exit(1)
+  }
+  return token
+}
+
 async function readStdin(): Promise<string | undefined> {
   if (Deno.stdin.isTerminal()) return undefined
   const buf = await new Response(Deno.stdin.readable).text()
@@ -35,7 +48,12 @@ async function openThingsUrl(
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join('&')
   const urlStr = `things:///${action}?${query}`
-  console.error(urlStr)
+  const displayQuery = Object.entries(params)
+    .map(([k, v]) =>
+      `${encodeURIComponent(k)}=${k === 'auth-token' ? '***' : encodeURIComponent(v)}`
+    )
+    .join('&')
+  console.error(`things:///${action}?${displayQuery}`)
   const { code } = await new Deno.Command('open', { args: [urlStr] }).output()
   if (code !== 0) {
     console.error(`Failed to open URL (exit code ${code})`)
@@ -490,6 +508,56 @@ await new Command()
             if (notes) params.notes = notes
             await openThingsUrl('add-project', params)
           }),
+      ),
+  )
+  // The Things URL scheme also supports creation-date and completion-date on
+  // update, but creation-date can only move backward. To move it forward, use
+  // an Apple Shortcut with "Set Creation Date".
+  .command(
+    'update',
+    new Command()
+      .description('update an existing item via Things URL scheme')
+      .arguments('<uuid:string>')
+      .option('--title <title:string>', 'new title')
+      .option('--notes <notes:string>', 'replace notes')
+      .option('--prepend-notes <prependNotes:string>', 'prepend to notes')
+      .option('--append-notes <appendNotes:string>', 'append to notes')
+      .option(
+        '--when <when:string>',
+        'today, tomorrow, evening, anytime, someday, or date',
+      )
+      .option('--deadline <deadline:string>', 'deadline date')
+      .option('--completed', 'mark completed')
+      .option('--canceled', 'mark canceled')
+      .option('--add-tags <addTags:string>', 'comma-separated tags')
+      .action(
+        async (
+          {
+            title,
+            notes,
+            prependNotes,
+            appendNotes,
+            when,
+            deadline,
+            completed,
+            canceled,
+            addTags,
+          },
+          uuid: string,
+        ) => {
+          const token = requireToken()
+          const params: Record<string, string> = { id: uuid, 'auth-token': token }
+          if (title) params.title = title
+          if (notes) params.notes = notes
+          if (prependNotes) params['prepend-notes'] = prependNotes
+          if (appendNotes) params['append-notes'] = appendNotes
+          if (when) params.when = when
+          if (deadline) params.deadline = deadline
+          if (completed) params.completed = 'true'
+          if (canceled) params.canceled = 'true'
+          if (addTags) params['add-tags'] = addTags
+          await openThingsUrl('update', params)
+        },
       ),
   )
   .parse(Deno.args)

@@ -5,6 +5,7 @@
     "jsr:@cliffy/flags@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/internal@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/table@1.0.0-rc.8": "1.0.0-rc.8",
+    "jsr:@std/dotenv@~0.225.6": "0.225.6",
     "jsr:@std/fmt@~1.0.2": "1.0.8",
     "jsr:@std/fs@^1.0.8": "1.0.20",
     "jsr:@std/internal@^1.0.12": "1.0.12",
@@ -40,6 +41,9 @@
       "dependencies": [
         "jsr:@std/fmt"
       ]
+    },
+    "@std/dotenv@0.225.6": {
+      "integrity": "1d6f9db72f565bd26790fa034c26e45ecb260b5245417be76c2279e5734c421b"
     },
     "@std/fmt@1.0.8": {
       "integrity": "71e1fc498787e4434d213647a6e43e794af4fd393ef8f52062246e06f7e372b7"
@@ -559,6 +563,7 @@
     "dependencies": [
       "jsr:@cliffy/command@1.0.0-rc.8",
       "jsr:@cliffy/table@1.0.0-rc.8",
+      "jsr:@std/dotenv@~0.225.6",
       "jsr:@std/fs@^1.0.8",
       "npm:dayjs@^1.11.18",
       "npm:memoize@^10.1.0",
