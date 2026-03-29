@@ -152,9 +152,7 @@
           const urlAreas = getUrlAreas()
           if (urlAreas) {
             const validAreas = urlAreas.filter((a) => domain.includes(a))
-            selectedAreas = validAreas.length > 0
-              ? new Set(validAreas)
-              : new Set(domain)
+            selectedAreas = validAreas.length > 0 ? new Set(validAreas) : new Set(domain)
           } else {
             selectedAreas = new Set(domain)
           }

@@ -123,7 +123,9 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
         const location = area || project ? `[${area}${project}${heading}] ` : ''
         const doneLabel = todo.status === 'canceled' ? 'canceled' : 'done'
         const dates = [
-          todo.stop_date ? `${doneLabel}: ${todo.stop_date.toISOString().slice(0, 10)}` : null,
+          todo.stop_date
+            ? `${doneLabel}: ${todo.stop_date.toISOString().slice(0, 10)}`
+            : null,
           todo.start !== 'Anytime' ? todo.start.toLowerCase() : null,
           todo.start_date
             ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}`
@@ -148,7 +150,9 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
         const dates = [
           `created: ${created}`,
           todo.modified ? `modified: ${todo.modified.toISOString().slice(0, 10)}` : null,
-          todo.stop_date ? `${doneLabel}: ${todo.stop_date.toISOString().slice(0, 10)}` : null,
+          todo.stop_date
+            ? `${doneLabel}: ${todo.stop_date.toISOString().slice(0, 10)}`
+            : null,
           todo.start !== 'Anytime' ? `when: ${todo.start}` : null,
           todo.start_date
             ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}`
