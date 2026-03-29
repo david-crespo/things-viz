@@ -21,6 +21,28 @@ import plotTemplate from './plot.html' with { type: 'text' }
 
 if (!import.meta.main) Deno.exit()
 
+async function readStdin(): Promise<string | undefined> {
+  if (Deno.stdin.isTerminal()) return undefined
+  const buf = await new Response(Deno.stdin.readable).text()
+  return buf.trimEnd()
+}
+
+async function openThingsUrl(
+  action: string,
+  params: Record<string, string>,
+) {
+  const query = Object.entries(params)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&')
+  const urlStr = `things:///${action}?${query}`
+  console.error(urlStr)
+  const { code } = await new Deno.Command('open', { args: [urlStr] }).output()
+  if (code !== 0) {
+    console.error(`Failed to open URL (exit code ${code})`)
+    Deno.exit(1)
+  }
+}
+
 const Format = z.enum(['json', 'tsv', 'pretty', 'short'])
 
 function parseFormat(format: string) {
@@ -412,5 +434,62 @@ await new Command()
           console.log(`[Area] ${item.title}`)
         }
       }),
+  )
+  .command(
+    'add',
+    new Command()
+      .description('create items via Things URL scheme')
+      .action(() => {
+        throw new ValidationError('Subcommand required: todo, project')
+      })
+      .command(
+        'todo',
+        new Command()
+          .description('create a new todo')
+          .arguments('<title:string>')
+          .option('--area <area:string>', 'area name')
+          .option('--project <project:string>', 'project name')
+          .option('--heading <heading:string>', 'heading within project')
+          .option(
+            '--when <when:string>',
+            'today, tomorrow, evening, anytime, someday, or date',
+          )
+          .option('--deadline <deadline:string>', 'deadline date')
+          .action(async ({ area, project, heading, when, deadline }, title: string) => {
+            if (area && project) {
+              throw new ValidationError('--area and --project are mutually exclusive')
+            }
+            const notes = await readStdin()
+            const params: Record<string, string> = { title }
+            if (area) params.list = area
+            if (project) params.list = project
+            if (heading) params.heading = heading
+            if (when) params.when = when
+            if (deadline) params.deadline = deadline
+            if (notes) params.notes = notes
+            await openThingsUrl('add', params)
+          }),
+      )
+      .command(
+        'project',
+        new Command()
+          .description('create a new project')
+          .arguments('<title:string>')
+          .option('--area <area:string>', 'area name')
+          .option(
+            '--when <when:string>',
+            'today, tomorrow, evening, anytime, someday, or date',
+          )
+          .option('--deadline <deadline:string>', 'deadline date')
+          .action(async ({ area, when, deadline }, title: string) => {
+            const notes = await readStdin()
+            const params: Record<string, string> = { title }
+            if (area) params.area = area
+            if (when) params.when = when
+            if (deadline) params.deadline = deadline
+            if (notes) params.notes = notes
+            await openThingsUrl('add-project', params)
+          }),
+      ),
   )
   .parse(Deno.args)
