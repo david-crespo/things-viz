@@ -106,6 +106,27 @@ function renderTsv(headers: string[], rows: (string | null | undefined)[][]) {
 
 type RenderFormat = z.infer<typeof Format>
 
+function fmtLocation(todo: Todo): string {
+  const area = todo.area_title || ''
+  const project = todo.project_title ? ` > ${todo.project_title}` : ''
+  const heading = todo.heading_title ? ` > ${todo.heading_title}` : ''
+  return area || project ? `[${area}${project}${heading}] ` : ''
+}
+
+/** Date/status tags shared by short and pretty formats. */
+function todoDateTags(todo: Todo): string[] {
+  const doneLabel = todo.status === 'canceled' ? 'canceled' : 'done'
+  return [
+    todo.stop_date ? `${doneLabel}: ${todo.stop_date.toISOString().slice(0, 10)}` : null,
+    // Suppress the start bucket (e.g. "someday") when a scheduled date is
+    // present — the bucket is a Things implementation detail, and the date
+    // already tells the user when the item will appear.
+    todo.start !== 'Anytime' && !todo.start_date ? todo.start.toLowerCase() : null,
+    todo.start_date ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}` : null,
+    todo.deadline ? `deadline: ${todo.deadline.toISOString().slice(0, 10)}` : null,
+  ].filter((s): s is string => s !== null)
+}
+
 function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
   match(format)
     .with('json', () => {
@@ -157,47 +178,21 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
     })
     .with('short', () => {
       todos.forEach((todo) => {
-        const area = todo.area_title || ''
-        const project = todo.project_title ? ` > ${todo.project_title}` : ''
-        const heading = todo.heading_title ? ` > ${todo.heading_title}` : ''
-        const location = area || project ? `[${area}${project}${heading}] ` : ''
-        const doneLabel = todo.status === 'canceled' ? 'canceled' : 'done'
-        const dates = [
-          todo.stop_date
-            ? `${doneLabel}: ${todo.stop_date.toISOString().slice(0, 10)}`
-            : null,
-          todo.start !== 'Anytime' ? todo.start.toLowerCase() : null,
-          todo.start_date
-            ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}`
-            : null,
-          todo.deadline ? `deadline: ${todo.deadline.toISOString().slice(0, 10)}` : null,
-        ].filter(Boolean)
-        const dateSuffix = dates.length ? ` (${dates.join(', ')})` : ''
-        console.log(`${location}${todo.title}${dateSuffix}`)
+        const location = fmtLocation(todo)
+        const dateSuffix = todoDateTags(todo)
+        const suffix = dateSuffix.length ? ` (${dateSuffix.join(', ')})` : ''
+        console.log(`${location}${todo.title}${suffix}`)
       })
     })
     .with('pretty', () => {
       todos.forEach((todo, i) => {
-        const created = todo.created.toISOString().slice(0, 10)
-        const area = todo.area_title || ''
-        const project = todo.project_title ? ` > ${todo.project_title}` : ''
-        const heading = todo.heading_title ? ` > ${todo.heading_title}` : ''
-        const location = area || project ? `[${area}${project}${heading}] ` : ''
-
+        const location = fmtLocation(todo)
         if (i > 0) console.log()
         console.log(`${location}${todo.title}`)
-        const doneLabel = todo.status === 'canceled' ? 'canceled' : 'done'
         const dates = [
-          `created: ${created}`,
+          `created: ${todo.created.toISOString().slice(0, 10)}`,
           todo.modified ? `modified: ${todo.modified.toISOString().slice(0, 10)}` : null,
-          todo.stop_date
-            ? `${doneLabel}: ${todo.stop_date.toISOString().slice(0, 10)}`
-            : null,
-          todo.start !== 'Anytime' ? `when: ${todo.start}` : null,
-          todo.start_date
-            ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}`
-            : null,
-          todo.deadline ? `deadline: ${todo.deadline.toISOString().slice(0, 10)}` : null,
+          ...todoDateTags(todo),
         ].filter(Boolean)
         console.log(`  ${dates.join(' | ')}`)
         if (todo.notes) {
