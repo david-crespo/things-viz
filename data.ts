@@ -28,6 +28,8 @@ const itemBase = z.object({
   modified: z.string().nullable(),
   // scheduling bucket: "Inbox", "Anytime", or "Someday"
   start: z.string(),
+  // true if the item is marked as evening in Things
+  evening: z.boolean(),
   // user-set scheduled date (when item should appear in Today)
   start_date: z.string().nullable(),
   // user-set due date
@@ -126,6 +128,7 @@ function transformTask(row: Row): Record<string, unknown> {
 
   result.notes = row.notes ?? ''
   result.start = START_MAP[row.start as number] ?? row.start
+  result.evening = (row.startBucket as number) === 1
   result.start_date = thingsDateToIso(row.startDate as number | null)
   result.deadline = thingsDateToIso(row.deadline as number | null)
   result.stop_date = unixToDatetime(row.stopDate as number | null)
@@ -171,6 +174,7 @@ function localDateStr(): string {
 function parseTodo(item: z.infer<typeof todoSchema>) {
   return {
     ...item,
+    evening: item.evening,
     created: parseDate(item.created)!,
     modified: parseDate(item.modified),
     start_date: parseDate(item.start_date),
@@ -187,7 +191,7 @@ const TODO_COLS = `
   COALESCE(t.project, h.project) as project,
   COALESCE(p.title, hp.title) as project_title,
   t.heading, h.title as heading_title,
-  t.notes, t.start, t.startDate, t.deadline, t.stopDate,
+  t.notes, t.start, t.startDate, t.startBucket, t.deadline, t.stopDate,
   t.creationDate, t.userModificationDate, t."index" as idx, t.todayIndex`
 
 const TODO_FROM = `
@@ -258,11 +262,14 @@ class Things {
   }
 
   today(): Row[] {
+    // start IN (1, 2) picks up both confirmed (Anytime) and unconfirmed
+    // (Someday) items whose scheduled date has arrived. Unconfirmed items
+    // show a yellow dot in the Things UI.
     return this.db
       .prepare(
         `SELECT ${TODO_COLS} ${TODO_FROM}
         WHERE ${TODO_BASE_WHERE}
-          AND t.status = 0 AND t.start = 1
+          AND t.status = 0 AND t.start IN (1, 2)
           AND t.startDate IS NOT NULL AND t.startDate <= ?
         ORDER BY t.todayIndex`,
       )

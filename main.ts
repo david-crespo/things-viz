@@ -118,6 +118,7 @@ function todoDateTags(todo: Todo): string[] {
   const doneLabel = todo.status === 'canceled' ? 'canceled' : 'done'
   return [
     todo.stop_date ? `${doneLabel}: ${todo.stop_date.toISOString().slice(0, 10)}` : null,
+    todo.evening ? 'evening' : null,
     // Suppress the start bucket (e.g. "someday") when a scheduled date is
     // present — the bucket is a Things implementation detail, and the date
     // already tells the user when the item will appear.
@@ -142,6 +143,7 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
             modified: todo.modified?.toISOString() || null,
             stop_date: todo.stop_date?.toISOString().slice(0, 10) || null,
             start: todo.start,
+            evening: todo.evening,
             start_date: todo.start_date?.toISOString().slice(0, 10) || null,
             deadline: todo.deadline?.toISOString().slice(0, 10) || null,
             checklist: todo.checklist || null,
