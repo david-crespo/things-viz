@@ -106,6 +106,17 @@ function renderTsv(headers: string[], rows: (string | null | undefined)[][]) {
 
 type RenderFormat = z.infer<typeof Format>
 
+// Local-time YYYY-MM-DD HH:MM for human-readable output. Things stores stopDate
+// (and creation/modification) as unix timestamps with second precision, so the
+// time is meaningful — e.g. for sorting completions within a day.
+function fmtLocalDateTime(d: Date): string {
+  const dt = Temporal.Instant.fromEpochMilliseconds(d.getTime())
+    .toZonedDateTimeISO(Temporal.Now.timeZoneId())
+    .toPlainDateTime()
+    .toString({ smallestUnit: 'minute' })
+  return dt.replace('T', ' ')
+}
+
 function fmtLocation(todo: Todo): string {
   const area = todo.area_title || ''
   const project = todo.project_title ? ` > ${todo.project_title}` : ''
@@ -117,7 +128,7 @@ function fmtLocation(todo: Todo): string {
 function todoDateTags(todo: Todo): string[] {
   const doneLabel = todo.status === 'canceled' ? 'canceled' : 'done'
   return [
-    todo.stop_date ? `${doneLabel}: ${todo.stop_date.toISOString().slice(0, 10)}` : null,
+    todo.stop_date ? `${doneLabel}: ${fmtLocalDateTime(todo.stop_date)}` : null,
     todo.evening ? 'evening' : null,
     // Suppress the start bucket (e.g. "someday") when a scheduled date is
     // present — the bucket is a Things implementation detail, and the date
@@ -141,7 +152,7 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
             notes: todo.notes || null,
             created: todo.created.toISOString(),
             modified: todo.modified?.toISOString() || null,
-            stop_date: todo.stop_date?.toISOString().slice(0, 10) || null,
+            stop_date: todo.stop_date?.toISOString() || null,
             start: todo.start,
             evening: todo.evening,
             start_date: todo.start_date?.toISOString().slice(0, 10) || null,
@@ -167,8 +178,8 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
       ]
       const rows = todos.map((todo) => [
         todo.uuid,
-        todo.created.toISOString().slice(0, 10),
-        todo.stop_date?.toISOString().slice(0, 10),
+        fmtLocalDateTime(todo.created),
+        todo.stop_date ? fmtLocalDateTime(todo.stop_date) : null,
         ...(showArea ? [todo.area_title] : []),
         todo.project_title,
         todo.heading_title,
