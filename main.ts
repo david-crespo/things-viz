@@ -557,8 +557,10 @@ await new Command()
           const params: Record<string, string> = { id: uuid, 'auth-token': token }
           if (title) params.title = title
           if (notes) params.notes = notes
-          if (prependNotes) params['prepend-notes'] = prependNotes
-          if (appendNotes) params['append-notes'] = appendNotes
+          // Auto-separate from existing notes with a blank line. Things 3
+          // doesn't render markdown, so visual separation matters.
+          if (prependNotes) params['prepend-notes'] = prependNotes + '\n'
+          if (appendNotes) params['append-notes'] = '\n' + appendNotes
           if (when) params.when = when
           if (deadline) params.deadline = deadline
           if (completed) params.completed = 'true'
