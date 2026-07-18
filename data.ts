@@ -348,7 +348,8 @@ class Things {
         `SELECT
           t.uuid, t.type, t.title, t.status,
           t.area, a.title as area_title,
-          t.project, p.title as project_title,
+          COALESCE(t.project, h.project) as project,
+          COALESCE(p.title, hp.title) as project_title,
           t.heading, h.title as heading_title,
           t.notes, t.start, t.startDate, t.deadline, t.stopDate,
           t.creationDate, t.userModificationDate, t."index" as idx, t.todayIndex
@@ -356,6 +357,7 @@ class Things {
         LEFT JOIN TMArea a ON t.area = a.uuid
         LEFT JOIN TMTask p ON t.project = p.uuid
         LEFT JOIN TMTask h ON t.heading = h.uuid
+        LEFT JOIN TMTask hp ON h.project = hp.uuid
         WHERE t.uuid = ?`,
       )
       .get(uuid)

@@ -516,8 +516,34 @@ await new Command()
             'today, tomorrow, evening, anytime, someday, or date',
           )
           .option('--deadline <deadline:string>', 'deadline date')
-          .action(async ({ area, when, deadline }, title: string) => {
+          // Headings can only be created together with the project. The URL
+          // scheme has no way to add a heading to an existing project: add's
+          // heading param only targets existing headings, and the json
+          // command's project update operation ignores `items` (verified
+          // empirically 2026-07-18, matching the docs:
+          // https://culturedcode.com/things/support/articles/2803573/).
+          .option('--heading <heading:string>', 'heading to create (repeatable)', {
+            collect: true,
+          })
+          .action(async ({ area, when, deadline, heading }, title: string) => {
             const notes = await readStdin()
+            if (heading) {
+              // add-project can't create headings; the json command can, but
+              // only as part of project creation
+              const attributes: Record<string, unknown> = { title }
+              if (area) attributes.area = area
+              if (when) attributes.when = when
+              if (deadline) attributes.deadline = deadline
+              if (notes) attributes.notes = notes
+              attributes.items = heading.map((h) => ({
+                type: 'heading',
+                attributes: { title: h },
+              }))
+              await openThingsUrl('json', {
+                data: JSON.stringify([{ type: 'project', attributes }]),
+              })
+              return
+            }
             const params: Record<string, string> = { title }
             if (area) params.area = area
             if (when) params.when = when
@@ -544,6 +570,9 @@ await new Command()
         'today, tomorrow, evening, anytime, someday, or date',
       )
       .option('--deadline <deadline:string>', 'deadline date')
+      // Things silently ignores the param if no heading with that exact
+      // title exists in the item's project
+      .option('--heading <heading:string>', 'move under heading within project')
       .option('--completed', 'mark completed')
       .option('--canceled', 'mark canceled')
       .option('--add-tags <addTags:string>', 'comma-separated tags')
@@ -569,6 +598,7 @@ await new Command()
             appendNotes,
             when,
             deadline,
+            heading,
             completed,
             canceled,
             addTags,
@@ -588,6 +618,7 @@ await new Command()
           if (appendNotes) params['append-notes'] = '\n' + appendNotes
           if (when) params.when = when
           if (deadline) params.deadline = deadline
+          if (heading) params.heading = heading
           if (completed) params.completed = 'true'
           if (canceled) params.canceled = 'true'
           if (addTags) params['add-tags'] = addTags
