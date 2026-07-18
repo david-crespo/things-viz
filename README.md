@@ -24,7 +24,7 @@ Commands:
 
   table             - print table of the last 30 days
   plot              - run server showing plot
-  done      [area]  - list recent done items
+  logbook           - list completed items
   todos             - list items
   areas             - list all areas
   projects          - list projects
@@ -35,6 +35,8 @@ Commands:
   someday           - list tasks in Someday view (deferred)
   link      <uuid>  - output OSC 8 hyperlink for a Things item
   item      <uuid>  - show a single item by uuid
+  add               - create items via Things URL scheme
+  update    <uuid>  - update an existing item via Things URL scheme
 ```
 
 <img width="994" height="639" alt="tviz plot showing line graph of items by area over time" src="https://github.com/user-attachments/assets/b62073be-82e8-45f8-bea7-a05167ad14fa" />
@@ -52,6 +54,24 @@ The needed permissions are built into the shebang at the top of [`main.ts`](./ma
 Things 3 data is just a SQLite DB on disk. All we have to do is find the path and query it
 with [`node:sqlite`](https://docs.deno.com/examples/sqlite/) (in `readOnly` mode to be
 safe). See [`data.ts`](./data.ts).
+
+## Testing
+
+```sh
+deno task test
+```
+
+CLI tests run the real `main.ts` as a subprocess against a fresh fixture database under
+`test/.tmp` (see [`test/cli.ts`](./test/cli.ts)).
+
+Tests are guaranteed not to touch real Things data, and the guarantee is enforced by Deno
+permission sandboxes rather than test-code discipline. The test task can only read and write
+under `test/.tmp`, and the CLI subprocess gets its own flags: it can only read within this
+repo (a real Things database is unreachable), cannot write or use the network, and can run
+only `open` — shadowed on PATH with a stub that records `things:///` URLs instead of
+launching them, since `add`/`update` URLs would otherwise write to the real Things app. Any
+accidental attempt to reach outside fails loudly with `NotCapable`. Those permission flags
+are the safety boundary: don't loosen them to fix a failing test.
 
 ## History
 

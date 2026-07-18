@@ -61,7 +61,7 @@ const areaSchema = z.object({
 const anyItemSchema = z.union([todoSchema, projectSchema, areaSchema])
 
 // Database path discovery
-async function findDatabasePath(): Promise<string> {
+export async function findDatabasePath(): Promise<string> {
   const envPath = Deno.env.get('THINGSDB')
   if (envPath) return envPath
 
@@ -351,7 +351,7 @@ class Things {
           COALESCE(t.project, h.project) as project,
           COALESCE(p.title, hp.title) as project_title,
           t.heading, h.title as heading_title,
-          t.notes, t.start, t.startDate, t.deadline, t.stopDate,
+          t.notes, t.start, t.startDate, t.startBucket, t.deadline, t.stopDate,
           t.creationDate, t.userModificationDate, t."index" as idx, t.todayIndex
         FROM TMTask t
         LEFT JOIN TMArea a ON t.area = a.uuid
@@ -376,22 +376,27 @@ function resolveAreas(items: Row[], things: Things): Row[] {
   const needsLookup = items.filter((i) => i.project && !i.area_title)
   if (needsLookup.length === 0) return items
 
-  const projects = new Map(things.projects().map((p) => [p.uuid, p.area_title]))
+  const projects = new Map(things.projects().map((project) => [project.uuid, project]))
   for (const item of needsLookup) {
-    item.area_title = projects.get(item.project as string) ?? null
+    const project = projects.get(item.project as string)
+    if (project?.area) item.area = project.area
+    item.area_title = project?.area_title ?? null
   }
   return items
 }
 
 // Public API
 
-async function openThings() {
-  const dbPath = await findDatabasePath()
-  return new Things(dbPath)
+type DatabaseOptions = { dbPath?: string; timeZone?: string }
+
+async function openThings(dbPath?: string) {
+  return new Things(dbPath ?? await findDatabasePath())
 }
 
-export async function getAllItems(opts: { incompleteOnly?: boolean } = {}) {
-  using things = await openThings()
+export async function getAllItems(
+  opts: { incompleteOnly?: boolean; dbPath?: string } = {},
+) {
+  using things = await openThings(opts.dbPath)
   let items = things.todos({ status: 'incomplete' })
   if (!opts.incompleteOnly) {
     items = [
@@ -406,15 +411,18 @@ export async function getAllItems(opts: { incompleteOnly?: boolean } = {}) {
   return parsed.map(parseTodo)
 }
 
-export async function getItemByUuid(uuid: string) {
-  using things = await openThings()
+export async function getItemByUuid(uuid: string, opts: DatabaseOptions = {}) {
+  using things = await openThings(opts.dbPath)
   const result = things.get(uuid)
   if (!result) return null
   return anyItemSchema.parse(result)
 }
 
-export async function getTodoByUuid(uuid: string): Promise<Todo | null> {
-  using things = await openThings()
+export async function getTodoByUuid(
+  uuid: string,
+  opts: DatabaseOptions = {},
+): Promise<Todo | null> {
+  using things = await openThings(opts.dbPath)
   const result = things.get(uuid)
   if (!result || result.type !== 'to-do') return null
   things.attachChecklistItems([result])
@@ -423,14 +431,14 @@ export async function getTodoByUuid(uuid: string): Promise<Todo | null> {
   return parseTodo(parsed)
 }
 
-export async function getAreas() {
-  using things = await openThings()
+export async function getAreas(opts: DatabaseOptions = {}) {
+  using things = await openThings(opts.dbPath)
   const areas = z.array(areaSchema).parse(things.areas())
   return areas.map((a) => a.title).sort()
 }
 
-export async function getProjects() {
-  using things = await openThings()
+export async function getProjects(opts: DatabaseOptions = {}) {
+  using things = await openThings(opts.dbPath)
   const projects = z.array(projectSchema).parse(things.projects())
   return projects.map((p) => ({
     uuid: p.uuid,
@@ -446,9 +454,11 @@ export async function getProjects() {
 
 export type ViewName = 'today' | 'inbox' | 'anytime' | 'upcoming' | 'someday'
 export type Todo = Awaited<ReturnType<typeof getAllItems>>[number]
+export type Project = Awaited<ReturnType<typeof getProjects>>[number]
+export type Item = NonNullable<Awaited<ReturnType<typeof getItemByUuid>>>
 
-export async function getViewItems(view: ViewName) {
-  using things = await openThings()
+export async function getViewItems(view: ViewName, opts: DatabaseOptions = {}) {
+  using things = await openThings(opts.dbPath)
   const items = things[view]()
   things.attachChecklistItems(items)
   const resolved = resolveAreas(items, things)
@@ -456,23 +466,67 @@ export async function getViewItems(view: ViewName) {
   return parsed.map(parseTodo)
 }
 
-const dateToStr = (d: Date) => d.toISOString().slice(0, 10)
+export type CountRow = {
+  date: string
+  total: number
+  completions: number
+  unassigned: number
+  areas: Record<string, number>
+}
 
-const TOTAL = 'Total'
-const COMP = 'Completions'
+export type CountPlotDatum = {
+  date: string
+  kind: 'total' | 'completions' | 'completion-average' | 'unassigned' | 'area'
+  area: string
+  label: string
+  count: number
+}
 
-export async function getCounts() {
-  const todos = await getAllItems()
+export function countsToPlotData(counts: CountRow[]): CountPlotDatum[] {
+  return counts.flatMap(({ date, total, completions, unassigned, areas }) => [
+    { date, kind: 'total', area: 'total', label: 'Total', count: total },
+    {
+      date,
+      kind: 'completions',
+      area: 'completions',
+      label: 'Completions',
+      count: completions,
+    },
+    { date, kind: 'unassigned', area: 'unassigned', label: NO_AREA, count: unassigned },
+    ...Object.entries(areas)
+      .toSorted(([a], [b]) => a.localeCompare(b))
+      .map(([name, count]) => ({
+        date,
+        kind: 'area' as const,
+        area: `area:${name}`,
+        label: name,
+        count,
+      })),
+  ])
+}
+
+export async function getCounts(opts: DatabaseOptions = {}) {
+  const todos = await getAllItems(opts)
+  const timeZone = opts.timeZone ?? Temporal.Now.timeZoneId()
+  const dateToStr = (date: Date) =>
+    Temporal.Instant.fromEpochMilliseconds(date.getTime())
+      .toZonedDateTimeISO(timeZone)
+      .toPlainDate()
+      .toString()
 
   const incrDay = memoize((d: string) => dayjs(d).add(1, 'days').format('YYYY-MM-DD'))
 
   const tomorrow = incrDay(dateToStr(new Date()))
 
-  type DateKey = string
-  type DateCounts = Record<string, number>
-  const counts: Record<DateKey, DateCounts> = {}
+  type DateCounts = Omit<CountRow, 'date'>
+  const counts: Record<string, DateCounts> = {}
 
-  const initCounts = (): DateCounts => ({ [TOTAL]: 0, [NO_AREA]: 0, [COMP]: 0 })
+  const initCounts = (): DateCounts => ({
+    total: 0,
+    completions: 0,
+    unassigned: 0,
+    areas: {},
+  })
 
   for (const item of todos) {
     const start = dateToStr(item.created)
@@ -480,18 +534,21 @@ export async function getCounts() {
 
     for (let date = start; date <= end; date = incrDay(date)) {
       const dateCounts = counts[date] || initCounts()
-      dateCounts[item.area_title] = (dateCounts[item.area_title] || 0) + 1
-      dateCounts[TOTAL] += 1
-      if (date === end && date !== tomorrow) dateCounts[COMP] += 1
+      if (item.area) {
+        dateCounts.areas[item.area_title] = (dateCounts.areas[item.area_title] || 0) + 1
+      } else {
+        dateCounts.unassigned += 1
+      }
+      dateCounts.total += 1
+      if (date === end && date !== tomorrow) dateCounts.completions += 1
       counts[date] = dateCounts
     }
   }
 
-  const rows: { date: string; [s: string]: string | number }[] = Object.entries(counts).map(
-    (
-      [date, value],
-    ) => ({ date, ...value }),
-  )
+  const rows: CountRow[] = Object.entries(counts).map(([date, value]) => ({
+    date,
+    ...value,
+  }))
 
   return rows.toSorted((a, b) => a.date.localeCompare(b.date))
 }

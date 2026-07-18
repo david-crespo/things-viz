@@ -8,6 +8,7 @@ import { Table } from '@cliffy/table'
 import { load as loadEnv } from '@std/dotenv'
 
 import {
+  type CountRow,
   getAllItems,
   getAreas,
   getCounts,
@@ -19,6 +20,7 @@ import {
   type Todo,
   type ViewName,
 } from './data.ts'
+import { plotSeries, renderPlotHtml } from './plot.ts'
 import plotTemplate from './plot.html' with { type: 'text' }
 
 if (!import.meta.main) Deno.exit()
@@ -77,6 +79,31 @@ const formatOption = {
   opts: { default: 'short' as const, value: parseFormat },
 } as const
 
+const EMPTY_UPDATE_VALUE = '\0'
+const CLEARABLE_UPDATE_OPTIONS = new Set(['--notes', '--deadline'])
+
+// Cliffy rc.8 treats an empty string as a missing required option value. Preserve it through
+// parsing so update can distinguish an omitted field from a field the user wants to clear.
+function preserveEmptyUpdateValues(args: readonly string[]): string[] {
+  return args.map((arg, index) => {
+    if (arg === '' && CLEARABLE_UPDATE_OPTIONS.has(args[index - 1])) {
+      return EMPTY_UPDATE_VALUE
+    }
+    for (const option of CLEARABLE_UPDATE_OPTIONS) {
+      if (arg === `${option}=`) return `${option}=${EMPTY_UPDATE_VALUE}`
+    }
+    return arg
+  })
+}
+
+function applyChange(
+  params: Record<string, string>,
+  key: string,
+  value: string | undefined,
+) {
+  if (value !== undefined) params[key] = value === EMPTY_UPDATE_VALUE ? '' : value
+}
+
 function viewCommand(view: ViewName, description: string) {
   return new Command()
     .description(description)
@@ -84,17 +111,37 @@ function viewCommand(view: ViewName, description: string) {
     .action(async ({ format }) => renderTodos(await getViewItems(view), format))
 }
 
-function renderCountsTable(counts: Record<string, unknown>[]) {
+function renderCountsTable(counts: CountRow[]) {
   if (counts.length === 0) return
-  // Collect all keys across all rows to avoid missing columns
-  const allKeys = new Set(counts.flatMap(Object.keys))
-  // Order: date, Total, Completions, No area, then remaining areas sorted
-  const priority = ['date', 'Total', 'Completions', NO_AREA]
+  const showUnassigned = counts.some(({ unassigned }) => unassigned > 0)
+  // Areas can be named like the synthetic columns; suffix them so the columns stay distinct
+  const usedHeaders = new Set(['date', 'Total', 'Completions', NO_AREA])
+  const areaColumns = [...new Set(counts.flatMap(({ areas }) => Object.keys(areas)))]
+    .sort()
+    .map((name) => {
+      let header = name
+      let suffix = 1
+      while (usedHeaders.has(header)) {
+        header = suffix === 1 ? `${name} (area)` : `${name} (area ${suffix})`
+        suffix++
+      }
+      usedHeaders.add(header)
+      return { name, header }
+    })
   const headers = [
-    ...priority.filter((k) => allKeys.has(k)),
-    ...[...allKeys].filter((k) => !priority.includes(k)).sort(),
+    'date',
+    'Total',
+    'Completions',
+    ...(showUnassigned ? [NO_AREA] : []),
+    ...areaColumns.map(({ header }) => header),
   ]
-  const rows = counts.map((c) => headers.map((h) => String(c[h] ?? '')))
+  const rows = counts.map((count) => [
+    count.date,
+    String(count.total),
+    String(count.completions),
+    ...(showUnassigned ? [String(count.unassigned)] : []),
+    ...areaColumns.map(({ name }) => String(count.areas[name] ?? '')),
+  ])
   new Table().header(headers).body(rows).padding(1).render()
 }
 
@@ -147,8 +194,10 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
           todos.map((todo) => ({
             uuid: todo.uuid,
             title: todo.title,
+            status: todo.status,
             area: todo.area_title,
             project: todo.project_title || null,
+            heading: todo.heading_title || null,
             notes: todo.notes || null,
             created: todo.created.toISOString(),
             modified: todo.modified?.toISOString() || null,
@@ -231,11 +280,7 @@ await new Command()
   .command('table')
   .description('print table of the last 30 days')
   .action(async () => {
-    const counts = (await getCounts()).slice(-30)
-    if (!counts.some((c) => c[NO_AREA])) {
-      counts.forEach((c) => delete c[NO_AREA])
-    }
-    renderCountsTable(counts)
+    renderCountsTable((await getCounts()).slice(-30))
   })
   .reset()
   .command('plot')
@@ -246,10 +291,7 @@ await new Command()
 
     async function handler() {
       const counts = await getCounts()
-      const plotData = counts.flatMap(({ date, ...dateCounts }) =>
-        Object.entries(dateCounts).map(([area, count]) => ({ date, area, count }))
-      )
-      const html = plotTemplate.replace('/*__DATA__*/ []', JSON.stringify(plotData))
+      const html = renderPlotHtml(plotTemplate, plotSeries(counts))
       return new Response(html, { headers: { 'content-type': 'text/html' } })
     }
 
@@ -516,20 +558,14 @@ await new Command()
             'today, tomorrow, evening, anytime, someday, or date',
           )
           .option('--deadline <deadline:string>', 'deadline date')
-          // Headings can only be created together with the project. The URL
-          // scheme has no way to add a heading to an existing project: add's
-          // heading param only targets existing headings, and the json
-          // command's project update operation ignores `items` (verified
-          // empirically 2026-07-18, matching the docs:
-          // https://culturedcode.com/things/support/articles/2803573/).
           .option('--heading <heading:string>', 'heading to create (repeatable)', {
             collect: true,
           })
           .action(async ({ area, when, deadline, heading }, title: string) => {
             const notes = await readStdin()
             if (heading) {
-              // add-project can't create headings; the json command can, but
-              // only as part of project creation
+              // Headings can only be created together with the project. The URL scheme has
+              // no operation for adding one to an existing project.
               const attributes: Record<string, unknown> = { title }
               if (area) attributes.area = area
               if (when) attributes.when = when
@@ -570,8 +606,6 @@ await new Command()
         'today, tomorrow, evening, anytime, someday, or date',
       )
       .option('--deadline <deadline:string>', 'deadline date')
-      // Things silently ignores the param if no heading with that exact
-      // title exists in the item's project
       .option('--heading <heading:string>', 'move under heading within project')
       .option('--completed', 'mark completed')
       .option('--canceled', 'mark canceled')
@@ -579,16 +613,16 @@ await new Command()
       .option(
         '--checklist <item:string>',
         'replace checklist items (repeatable, max 100)',
-        {
-          collect: true,
-        },
+        { collect: true },
       )
       .option('--append-checklist <item:string>', 'append checklist items (repeatable)', {
         collect: true,
       })
-      .option('--prepend-checklist <item:string>', 'prepend checklist items (repeatable)', {
-        collect: true,
-      })
+      .option(
+        '--prepend-checklist <item:string>',
+        'prepend checklist items (repeatable)',
+        { collect: true },
+      )
       .action(
         async (
           {
@@ -611,24 +645,28 @@ await new Command()
           const token = requireToken()
           const params: Record<string, string> = { id: uuid, 'auth-token': token }
           if (title) params.title = title
-          if (notes) params.notes = notes
+          applyChange(params, 'notes', notes)
           // Auto-separate from existing notes with a blank line. Things 3
           // doesn't render markdown, so visual separation matters.
           if (prependNotes) params['prepend-notes'] = prependNotes + '\n'
           if (appendNotes) params['append-notes'] = '\n' + appendNotes
           if (when) params.when = when
-          if (deadline) params.deadline = deadline
+          applyChange(params, 'deadline', deadline)
           if (heading) params.heading = heading
           if (completed) params.completed = 'true'
           if (canceled) params.canceled = 'true'
           if (addTags) params['add-tags'] = addTags
           if (checklist) params['checklist-items'] = checklist.join('\n')
-          if (appendChecklist) params['append-checklist-items'] = appendChecklist.join('\n')
+          if (appendChecklist) {
+            params['append-checklist-items'] = appendChecklist.join('\n')
+          }
           if (prependChecklist) {
             params['prepend-checklist-items'] = prependChecklist.join('\n')
           }
-          await openThingsUrl('update', params)
+          const item = await getItemByUuid(uuid)
+          const action = item?.type === 'project' ? 'update-project' : 'update'
+          await openThingsUrl(action, params)
         },
       ),
   )
-  .parse(Deno.args)
+  .parse(preserveEmptyUpdateValues(Deno.args))

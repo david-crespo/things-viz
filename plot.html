@@ -63,27 +63,9 @@
       import * as Plot from 'https://esm.sh/@observablehq/plot@0.6'
 
       const rawData = /*__DATA__*/ []
+      const reconcileAreaSelection = /*__RECONCILE_SELECTION__*/ (() => {})
 
       const dateToStr = (d) => d.toISOString().slice(0, 10)
-
-      // assumes the data are sorted and there is a data point for every day
-      function movingAvg(data, windowSize) {
-        const result = []
-        let sum = 0
-        let start = 0
-
-        for (let i = 0; i < data.length; i++) {
-          sum += data[i].count
-
-          if (i - start + 1 === windowSize) {
-            result.push({ date: data[start].date, count: sum / windowSize })
-            sum -= data[start].count
-            start++
-          }
-        }
-
-        return result
-      }
 
       const getPlot = (title, data, colorScale) =>
         Plot.plot({
@@ -101,7 +83,7 @@
                 x: 'date',
                 y: 'count',
                 z: 'area',
-                text: 'area',
+                text: 'label',
                 textAnchor: 'start',
                 dx: 3,
               }),
@@ -112,8 +94,10 @@
       const getStartInput = () => document.querySelector('input[name=start]')
       const getEndInput = () => document.querySelector('input[name=end]')
 
-      // Track which areas are selected in the breakdown legend
-      let selectedAreas = null // null means all selected
+      // Keep implicit "all" distinct from an explicit subset so a wider date range can
+      // introduce older areas without silently filtering them out.
+      let areaSelection = { mode: 'all' }
+      let areaSelectionInitialized = false
       let allAreas = [] // store full domain for "show all" behavior
 
       // Read initial area filter from URL (supports multiple ?area=X&area=Y params)
@@ -127,10 +111,10 @@
         const params = new URLSearchParams(window.location.search)
         params.delete('area')
         if (
-          selectedAreas && selectedAreas.size > 0 &&
-          selectedAreas.size < allAreas.length
+          areaSelection.mode === 'subset' &&
+          areaSelection.areas.size < allAreas.length
         ) {
-          for (const area of selectedAreas) {
+          for (const area of areaSelection.areas) {
             params.append('area', area)
           }
         }
@@ -140,23 +124,27 @@
         window.history.replaceState({}, '', newUrl)
       }
 
-      function buildLegend(colorScale) {
+      function buildLegend(colorScale, labels) {
         const legendDiv = document.querySelector('#breakdown-legend')
         if (!colorScale) return
 
         const { domain, range } = colorScale
         allAreas = domain
 
-        // Initialize selectedAreas on first render
-        if (selectedAreas === null) {
+        if (!areaSelectionInitialized) {
           const urlAreas = getUrlAreas()
           if (urlAreas) {
             const validAreas = urlAreas.filter((a) => domain.includes(a))
-            selectedAreas = validAreas.length > 0 ? new Set(validAreas) : new Set(domain)
-          } else {
-            selectedAreas = new Set(domain)
+            if (validAreas.length > 0) {
+              areaSelection = { mode: 'subset', areas: new Set(validAreas) }
+            }
           }
+          areaSelectionInitialized = true
         }
+        areaSelection = reconcileAreaSelection(areaSelection, domain)
+        const selectedAreas = areaSelection.mode === 'all'
+          ? new Set(domain)
+          : areaSelection.areas
 
         legendDiv.innerHTML = ''
         domain.forEach((area, i) => {
@@ -167,7 +155,7 @@
           checkbox.checked = selectedAreas.has(area)
           checkbox.style.accentColor = range[i]
 
-          label.append(checkbox, ' ', area)
+          label.append(checkbox, ' ', labels.get(area) ?? area)
           label.onclick = (e) => {
             e.preventDefault()
             if (e.shiftKey) {
@@ -177,16 +165,15 @@
               } else {
                 selectedAreas.add(area)
               }
-              // If nothing selected, select all
-              if (selectedAreas.size === 0) {
-                selectedAreas = new Set(domain)
-              }
+              areaSelection = selectedAreas.size === 0 || selectedAreas.size === domain.length
+                ? { mode: 'all' }
+                : { mode: 'subset', areas: selectedAreas }
             } else {
               // Click: solo this area (or show all if already solo)
               if (selectedAreas.size === 1 && selectedAreas.has(area)) {
-                selectedAreas = new Set(domain)
+                areaSelection = { mode: 'all' }
               } else {
-                selectedAreas = new Set([area])
+                areaSelection = { mode: 'subset', areas: new Set([area]) }
               }
             }
             updateUrlAreas()
@@ -206,18 +193,21 @@
           .filter(({ date }) => date >= start && date <= end)
 
         const breakdownData = allData.filter(
-          ({ area }) => area !== 'Total' && area !== 'Completions',
+          ({ kind }) => kind === 'area' || kind === 'unassigned',
         )
+        const areaLabels = new Map(breakdownData.map(({ area, label }) => [area, label]))
 
         // First render with all data to get color scale for legend
         const fullBreakdownPlot = getPlot('Items by Area', breakdownData)
         const colorScale = fullBreakdownPlot.scale('color')
-        buildLegend(colorScale)
+        buildLegend(colorScale, areaLabels)
 
-        // Now filter by selected areas
-        const filteredBreakdownData = selectedAreas === null
-          ? breakdownData
-          : breakdownData.filter(({ area }) => selectedAreas.has(area))
+        const selectedAreas = areaSelection.mode === 'all'
+          ? new Set(allAreas)
+          : areaSelection.areas
+        const filteredBreakdownData = breakdownData.filter(({ area }) =>
+          selectedAreas.has(area)
+        )
 
         // Pass fixed color scale so colors don't shift when filtering
         const breakdownPlot = getPlot(
@@ -228,22 +218,14 @@
 
         const totalPlot = getPlot(
           'Total',
-          allData.filter(({ area }) => area === 'Total'),
+          allData.filter(({ kind }) => kind === 'total'),
         )
 
-        const completionsData = allData.filter(({ area }) => area === 'Completions')
-
-        // remove last data point because it's a fake one that's always zero
-        if (completionsData.at(-1)?.count === 0) {
-          completionsData.pop()
-        }
+        const completionsData = allData.filter(({ kind }) => kind === 'completion-average')
 
         const completionsPlot = getPlot(
           'Completions (30 day moving average)',
-          movingAvg(completionsData, 30).map((p) => ({
-            ...p,
-            area: 'Completions',
-          })),
+          completionsData,
         )
 
         const div = document.querySelector('#plots')
