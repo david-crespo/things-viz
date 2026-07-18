@@ -481,20 +481,29 @@ await new Command()
             'today, tomorrow, evening, anytime, someday, or date',
           )
           .option('--deadline <deadline:string>', 'deadline date')
-          .action(async ({ area, project, heading, when, deadline }, title: string) => {
-            if (area && project) {
-              throw new ValidationError('--area and --project are mutually exclusive')
-            }
-            const notes = await readStdin()
-            const params: Record<string, string> = { title }
-            if (area) params.list = area
-            if (project) params.list = project
-            if (heading) params.heading = heading
-            if (when) params.when = when
-            if (deadline) params.deadline = deadline
-            if (notes) params.notes = notes
-            await openThingsUrl('add', params)
-          }),
+          .option('--checklist <item:string>', 'checklist item (repeatable, max 100)', {
+            collect: true,
+          })
+          .action(
+            async (
+              { area, project, heading, when, deadline, checklist },
+              title: string,
+            ) => {
+              if (area && project) {
+                throw new ValidationError('--area and --project are mutually exclusive')
+              }
+              const notes = await readStdin()
+              const params: Record<string, string> = { title }
+              if (area) params.list = area
+              if (project) params.list = project
+              if (heading) params.heading = heading
+              if (when) params.when = when
+              if (deadline) params.deadline = deadline
+              if (notes) params.notes = notes
+              if (checklist) params['checklist-items'] = checklist.join('\n')
+              await openThingsUrl('add', params)
+            },
+          ),
       )
       .command(
         'project',
@@ -538,6 +547,19 @@ await new Command()
       .option('--completed', 'mark completed')
       .option('--canceled', 'mark canceled')
       .option('--add-tags <addTags:string>', 'comma-separated tags')
+      .option(
+        '--checklist <item:string>',
+        'replace checklist items (repeatable, max 100)',
+        {
+          collect: true,
+        },
+      )
+      .option('--append-checklist <item:string>', 'append checklist items (repeatable)', {
+        collect: true,
+      })
+      .option('--prepend-checklist <item:string>', 'prepend checklist items (repeatable)', {
+        collect: true,
+      })
       .action(
         async (
           {
@@ -550,6 +572,9 @@ await new Command()
             completed,
             canceled,
             addTags,
+            checklist,
+            appendChecklist,
+            prependChecklist,
           },
           uuid: string,
         ) => {
@@ -566,6 +591,11 @@ await new Command()
           if (completed) params.completed = 'true'
           if (canceled) params.canceled = 'true'
           if (addTags) params['add-tags'] = addTags
+          if (checklist) params['checklist-items'] = checklist.join('\n')
+          if (appendChecklist) params['append-checklist-items'] = appendChecklist.join('\n')
+          if (prependChecklist) {
+            params['prepend-checklist-items'] = prependChecklist.join('\n')
+          }
           await openThingsUrl('update', params)
         },
       ),

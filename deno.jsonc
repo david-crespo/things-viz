@@ -2,9 +2,6 @@
   "unstable": [
     "raw-imports"
   ],
-  "tasks": {
-    "check": "deno check *.ts*"
-  },
   "fmt": {
     "lineWidth": 92,
     "semiColons": false,
