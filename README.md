@@ -37,7 +37,7 @@ Commands:
   item      <uuid>  - show a single item by uuid
   add               - create items via Things URL scheme
   update    <uuid>  - update an existing item via Things URL scheme
-  delete    <uuid>  - move an item to the Things trash via AppleScript
+  delete    <uuid>  - move an item to the Things trash
 ```
 
 <img width="994" height="639" alt="tviz plot showing line graph of items by area over time" src="https://github.com/user-attachments/assets/b62073be-82e8-45f8-bea7-a05167ad14fa" />

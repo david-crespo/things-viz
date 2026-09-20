@@ -595,7 +595,7 @@ await new Command()
   .command(
     'delete',
     new Command()
-      .description('move an item to the Things trash via AppleScript')
+      .description('move an item to the Things trash')
       .arguments('<uuid:string>')
       .action(async (_options, uuid: string) => {
         const item = await getItemByUuid(uuid)
