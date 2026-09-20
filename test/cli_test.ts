@@ -335,6 +335,40 @@ Deno.test('update distinguishes empty fields from omitted fields', async () => {
   }
 })
 
+Deno.test('delete runs the AppleScript for the item type and refuses areas', async () => {
+  using fixture = new ThingsFixture()
+
+  const todo = fixture.addTask({ title: 'Task' })
+  const project = fixture.addTask({ type: 1, title: 'Project' })
+  const done = fixture.addTask({
+    title: 'Done',
+    status: 3,
+    stopDate: unixSeconds('2026-01-03T04:05:06Z'),
+  })
+  const area = fixture.addArea({ title: 'Work' })
+
+  const cases = [
+    [todo, 'to do', 'Task', ''],
+    [project, 'project', 'Project', ''],
+    [done, 'to do', 'Done', ' of list "Logbook"'],
+  ] as const
+  for (const [uuid, cls, title, scope] of cases) {
+    const result = await runTestCli(fixture, ['delete', uuid])
+    equal(result.code, 0)
+    deepStrictEqual(result.osascripts, [
+      `tell application "Things3" to delete ${cls} id "${uuid}"${scope}`,
+    ])
+    equal(result.stdout, `Deleted: ${title}\n`)
+    deepStrictEqual(result.launchedUrls, [])
+  }
+
+  for (const uuid of [area, 'nope']) {
+    const result = await runTestCli(fixture, ['delete', uuid])
+    equal(result.code, 1)
+    deepStrictEqual(result.osascripts, [])
+  }
+})
+
 Deno.test('table distinguishes reserved area names from synthetic columns', async () => {
   using fixture = new ThingsFixture()
 

@@ -37,6 +37,7 @@ Commands:
   item      <uuid>  - show a single item by uuid
   add               - create items via Things URL scheme
   update    <uuid>  - update an existing item via Things URL scheme
+  delete    <uuid>  - move an item to the Things trash via AppleScript
 ```
 
 <img width="994" height="639" alt="tviz plot showing line graph of items by area over time" src="https://github.com/user-attachments/assets/b62073be-82e8-45f8-bea7-a05167ad14fa" />
@@ -68,10 +69,11 @@ Tests are guaranteed not to touch real Things data, and the guarantee is enforce
 permission sandboxes rather than test-code discipline. The test task can only read and write
 under `test/.tmp`, and the CLI subprocess gets its own flags: it can only read within this
 repo (a real Things database is unreachable), cannot write or use the network, and can run
-only `open` — shadowed on PATH with a stub that records `things:///` URLs instead of
-launching them, since `add`/`update` URLs would otherwise write to the real Things app. Any
-accidental attempt to reach outside fails loudly with `NotCapable`. Those permission flags
-are the safety boundary: don't loosen them to fix a failing test.
+only `open` and `osascript` — both shadowed on PATH with stubs that record their arguments
+instead of running, since `add`/`update` URLs and `delete` AppleScript would otherwise write
+to the real Things app. Any accidental attempt to reach outside fails loudly with
+`NotCapable`. Those permission flags are the safety boundary: don't loosen them to fix a
+failing test.
 
 ## History
 

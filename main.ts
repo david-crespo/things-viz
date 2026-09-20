@@ -1,4 +1,4 @@
-#!/usr/bin/env deno run --allow-net=0.0.0.0:8000 --allow-env=THINGSDB,HOME,THINGS_TOKEN --allow-read --allow-run=open
+#!/usr/bin/env deno run --allow-net=0.0.0.0:8000 --allow-env=THINGSDB,HOME,THINGS_TOKEN --allow-read --allow-run=open,osascript
 
 import { z } from 'zod'
 import { match } from 'ts-pattern'
@@ -588,6 +588,41 @@ await new Command()
             await openThingsUrl('add-project', params)
           }),
       ),
+  )
+  // The URL scheme has no delete, so this goes through Things' AppleScript
+  // dictionary instead. Deletion moves the item to Things' Trash, which the app
+  // empties on its own schedule, so it is recoverable from the app for a while.
+  .command(
+    'delete',
+    new Command()
+      .description('move an item to the Things trash via AppleScript')
+      .arguments('<uuid:string>')
+      .action(async (_options, uuid: string) => {
+        const item = await getItemByUuid(uuid)
+        if (!item) {
+          console.error(`Item not found: ${uuid}`)
+          Deno.exit(1)
+        }
+        if (item.type === 'area') {
+          console.error('Refusing to delete an area')
+          Deno.exit(1)
+        }
+        const cls = item.type === 'project' ? 'project' : 'to do'
+        // Open items resolve by bare id; completed and canceled ones only resolve
+        // when scoped to the Logbook list.
+        const scope = item.status === 'incomplete' ? '' : ' of list "Logbook"'
+        const script = `tell application "Things3" to delete ${cls} id "${uuid}"${scope}`
+        console.error(`osascript -e '${script}'`)
+        const { code, stderr } = await new Deno.Command('osascript', {
+          args: ['-e', script],
+        }).output()
+        if (code !== 0) {
+          console.error(new TextDecoder().decode(stderr).trimEnd())
+          console.error(`Failed to delete (exit code ${code})`)
+          Deno.exit(1)
+        }
+        console.log(`Deleted: ${item.title}`)
+      }),
   )
   // The Things URL scheme also supports creation-date and completion-date on
   // update, but creation-date can only move backward. To move it forward, use
