@@ -264,16 +264,24 @@ class Things {
   today(): Row[] {
     // start IN (1, 2) picks up both confirmed (Anytime) and unconfirmed
     // (Someday) items whose scheduled date has arrived. Unconfirmed items
-    // show a yellow dot in the Things UI.
+    // show a yellow dot in the Things UI. Undated items in any bucket also
+    // show up once their deadline arrives, unless the deadline was suppressed
+    // (things.py's unconfirmed_overdue_tasks):
+    // https://github.com/thingsapi/things.py/blob/f228e5e/things/api.py#L515-L520
+    const today = isoToThingsDate(localDateStr())
     return this.db
       .prepare(
         `SELECT ${TODO_COLS} ${TODO_FROM}
         WHERE ${TODO_BASE_WHERE}
-          AND t.status = 0 AND t.start IN (1, 2)
-          AND t.startDate IS NOT NULL AND t.startDate <= ?
+          AND t.status = 0
+          AND (
+            (t.start IN (1, 2) AND t.startDate IS NOT NULL AND t.startDate <= ?)
+            OR (t.startDate IS NULL AND t.deadline <= ?
+              AND t.deadlineSuppressionDate IS NULL)
+          )
         ORDER BY t.todayIndex`,
       )
-      .all(isoToThingsDate(localDateStr()))
+      .all(today, today)
       .map((row) => transformTask(row as Row))
   }
 

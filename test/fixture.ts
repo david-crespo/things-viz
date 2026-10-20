@@ -22,6 +22,7 @@ const SCHEMA = `
     startDate INTEGER,
     startBucket INTEGER NOT NULL,
     deadline INTEGER,
+    deadlineSuppressionDate INTEGER,
     stopDate REAL,
     creationDate REAL NOT NULL,
     userModificationDate REAL,
@@ -66,6 +67,7 @@ export type TaskInput = {
   startDate?: number | null
   startBucket?: number
   deadline?: number | null
+  deadlineSuppressionDate?: number | null
   stopDate?: number | null
   creationDate?: number
   modificationDate?: number | null
@@ -120,10 +122,10 @@ export class ThingsFixture implements Disposable {
     this.db.prepare(
       `INSERT INTO TMTask (
         uuid, type, title, status, area, project, heading, notes,
-        start, startDate, startBucket, deadline, stopDate,
+        start, startDate, startBucket, deadline, deadlineSuppressionDate, stopDate,
         creationDate, userModificationDate, "index", todayIndex,
         trashed, rt1_recurrenceRule
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       uuid,
       input.type ?? 0,
@@ -137,6 +139,7 @@ export class ThingsFixture implements Disposable {
       input.startDate ?? null,
       input.startBucket ?? 0,
       input.deadline ?? null,
+      input.deadlineSuppressionDate ?? null,
       input.stopDate ?? null,
       input.creationDate ?? unixSeconds('2026-01-01T12:00:00Z') + sequence,
       input.modificationDate ?? null,

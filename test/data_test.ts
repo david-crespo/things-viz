@@ -110,6 +110,31 @@ Deno.test('view queries select and order representative tasks', async () => {
   ])
 })
 
+Deno.test('today includes undated to-dos whose deadline has arrived', async () => {
+  using fixture = new ThingsFixture()
+
+  const today = Temporal.Now.plainDateISO()
+  const past = thingsDate(2000, 1, 1)
+  const future = thingsDate(2099, 1, 1)
+
+  fixture.addTask({ title: 'Scheduled', startDate: past, todayIndex: 2 })
+  fixture.addTask({ title: 'Overdue', deadline: past, todayIndex: 3 })
+  fixture.addTask({
+    title: 'Due today',
+    start: 0,
+    deadline: thingsDate(today.year, today.month, today.day),
+    todayIndex: 1,
+  })
+  fixture.addTask({ title: 'Suppressed', deadline: past, deadlineSuppressionDate: past })
+  fixture.addTask({ title: 'Due later', deadline: future })
+  fixture.addTask({ title: 'Done overdue', status: 3, deadline: past })
+
+  deepStrictEqual(
+    (await getViewItems('today', { dbPath: fixture.path })).map((item) => item.title),
+    ['Due today', 'Scheduled', 'Overdue'],
+  )
+})
+
 Deno.test('getAreas and getProjects transform and filter rows', async () => {
   using fixture = new ThingsFixture()
 
