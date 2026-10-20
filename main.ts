@@ -13,10 +13,12 @@ import {
   getAreas,
   getCounts,
   getItemByUuid,
+  getProjectByUuid,
   getProjects,
   getTodoByUuid,
   getViewItems,
   NO_AREA,
+  type Project,
   type Todo,
   type ViewName,
 } from './data.ts'
@@ -184,6 +186,43 @@ function todoDateTags(todo: Todo): string[] {
     todo.start_date ? `scheduled: ${todo.start_date.toISOString().slice(0, 10)}` : null,
     todo.deadline ? `deadline: ${todo.deadline.toISOString().slice(0, 10)}` : null,
   ].filter((s): s is string => s !== null)
+}
+
+function renderProject(project: Project, format: RenderFormat) {
+  const fmtDate = (d: Date | null) => d?.toISOString().slice(0, 10) ?? null
+  match(format)
+    .with('json', () => {
+      console.log(JSON.stringify(
+        {
+          uuid: project.uuid,
+          type: 'project',
+          title: project.title,
+          status: project.status,
+          area: project.area_title,
+          notes: project.notes,
+          start: project.start,
+          start_date: fmtDate(project.start_date),
+          deadline: fmtDate(project.deadline),
+          created: project.created.toISOString(),
+        },
+        null,
+        2,
+      ))
+    })
+    .with('pretty', () => {
+      console.log(`[Project] ${project.title}`)
+      const tags = [
+        `area: ${project.area_title}`,
+        project.start_date ? `scheduled: ${fmtDate(project.start_date)}` : null,
+        project.deadline ? `deadline: ${fmtDate(project.deadline)}` : null,
+      ].filter(Boolean)
+      console.log(`  ${tags.join(' | ')}`)
+      if (project.notes) {
+        console.log(`  ${project.notes.replace(/\n/g, '\n  ')}`)
+      }
+    })
+    .with('short', 'tsv', () => console.log(`[Project] ${project.title}`))
+    .exhaustive()
 }
 
 function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
@@ -499,7 +538,7 @@ await new Command()
           const todo = await getTodoByUuid(uuid)
           renderTodos([todo!], format)
         } else if (item.type === 'project') {
-          console.log(`[Project] ${item.title}`)
+          renderProject((await getProjectByUuid(uuid))!, format)
         } else if (item.type === 'area') {
           console.log(`[Area] ${item.title}`)
         }

@@ -437,19 +437,30 @@ export async function getAreas(opts: DatabaseOptions = {}) {
   return areas.map((a) => a.title).sort()
 }
 
-export async function getProjects(opts: DatabaseOptions = {}) {
-  using things = await openThings(opts.dbPath)
-  const projects = z.array(projectSchema).parse(things.projects())
-  return projects.map((p) => ({
+function parseProject(p: z.infer<typeof projectSchema>) {
+  return {
     uuid: p.uuid,
     title: p.title,
     status: p.status,
     area_title: p.area_title ?? NO_AREA,
+    notes: p.notes?.trim() || null,
     start: p.start,
     start_date: parseDate(p.start_date),
     deadline: parseDate(p.deadline),
     created: parseDate(p.created)!,
-  }))
+  }
+}
+
+export async function getProjects(opts: DatabaseOptions = {}) {
+  using things = await openThings(opts.dbPath)
+  return z.array(projectSchema).parse(things.projects()).map(parseProject)
+}
+
+export async function getProjectByUuid(uuid: string, opts: DatabaseOptions = {}) {
+  using things = await openThings(opts.dbPath)
+  const result = things.get(uuid)
+  if (!result || result.type !== 'project') return null
+  return parseProject(projectSchema.parse(result))
 }
 
 export type ViewName = 'today' | 'inbox' | 'anytime' | 'upcoming' | 'someday'

@@ -2,7 +2,7 @@ import { deepStrictEqual, equal } from 'node:assert/strict'
 import { z } from 'zod'
 
 import { runTestCli } from './cli.ts'
-import { ThingsFixture, unixSeconds } from './fixture.ts'
+import { thingsDate, ThingsFixture, unixSeconds } from './fixture.ts'
 
 const todoJsonSchema = z.object({
   uuid: z.string(),
@@ -93,6 +93,42 @@ Deno.test('item captures exact area and project output', async () => {
     const result = await runTestCli(fixture, ['item', uuid])
     equal(result.stdout, expected)
   }
+})
+
+Deno.test('item shows project notes in pretty and json output', async () => {
+  using fixture = new ThingsFixture()
+
+  const areaId = fixture.addArea({ title: 'Work' })
+  const projectId = fixture.addTask({
+    type: 1,
+    title: 'Launch',
+    area: areaId,
+    notes: 'Why we launch\nhttps://example.com',
+    deadline: thingsDate(2026, 8, 2),
+    creationDate: unixSeconds('2026-01-02T12:00:00Z'),
+  })
+
+  const pretty = await runTestCli(fixture, ['item', projectId, '--format', 'pretty'])
+  equal(
+    pretty.stdout,
+    '[Project] Launch\n' +
+      '  area: Work | deadline: 2026-08-02\n' +
+      '  Why we launch\n  https://example.com\n',
+  )
+
+  const json = await runTestCli(fixture, ['item', projectId, '--format', 'json'])
+  deepStrictEqual(JSON.parse(json.stdout), {
+    uuid: projectId,
+    type: 'project',
+    title: 'Launch',
+    status: 'incomplete',
+    area: 'Work',
+    notes: 'Why we launch\nhttps://example.com',
+    start: 'Anytime',
+    start_date: null,
+    deadline: '2026-08-02',
+    created: '2026-01-02T12:00:00.000Z',
+  })
 })
 
 Deno.test('todos captures exact TSV output', async () => {
