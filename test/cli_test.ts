@@ -363,6 +363,29 @@ Deno.test('update separates prepended and appended notes only from existing note
   equal(params.get('append-notes'), '\nAfter')
 })
 
+Deno.test('update separates prepended from appended notes when notes are empty', async () => {
+  using fixture = new ThingsFixture()
+
+  const todoId = fixture.addTask({ title: 'Task' })
+  const both = await runTestCli(fixture, [
+    'update',
+    todoId,
+    '--prepend-notes',
+    'Before',
+    '--append-notes',
+    'After',
+  ])
+  const params = new URL(both.launchedUrls[0]).searchParams
+  equal(params.get('prepend-notes'), 'Before')
+  equal(params.get('append-notes'), '\nAfter')
+
+  for (const flag of ['--prepend-notes', '--append-notes']) {
+    const single = await runTestCli(fixture, ['update', todoId, flag, 'Only'])
+    const key = flag.slice(2)
+    equal(new URL(single.launchedUrls[0]).searchParams.get(key), 'Only')
+  }
+})
+
 Deno.test('update distinguishes empty fields from omitted fields', async () => {
   using fixture = new ThingsFixture()
 

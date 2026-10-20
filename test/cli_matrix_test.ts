@@ -275,7 +275,7 @@ Deno.test('update covers the remaining URL fields and token failure', async () =
     id: todo,
     'auth-token': 'test-token',
     'prepend-notes': 'Before',
-    'append-notes': 'After',
+    'append-notes': '\nAfter',
     when: 'tomorrow',
     heading: 'Plan',
     completed: 'true',

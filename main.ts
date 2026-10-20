@@ -723,12 +723,15 @@ await new Command()
           if (title) params.title = title
           const item = await getItemByUuid(uuid)
           applyChange(params, 'notes', notes)
-          // Auto-separate from existing notes with a blank line. Things 3
+          // Auto-separate from existing notes with a line break. Things 3
           // doesn't render markdown, so visual separation matters. With no
-          // existing notes, a separator would just be a leading blank line.
+          // existing notes, a separator would just be a leading line break,
+          // but prepended and appended text still need one between them.
           const sep = item && 'notes' in item && item.notes?.trim() ? '\n' : ''
           if (prependNotes) params['prepend-notes'] = prependNotes + sep
-          if (appendNotes) params['append-notes'] = sep + appendNotes
+          if (appendNotes) {
+            params['append-notes'] = (sep || (prependNotes ? '\n' : '')) + appendNotes
+          }
           if (when) params.when = when
           applyChange(params, 'deadline', deadline)
           if (heading) params.heading = heading
