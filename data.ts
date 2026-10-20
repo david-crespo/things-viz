@@ -535,7 +535,7 @@ export async function getCounts(opts: DatabaseOptions = {}) {
 
   const incrDay = memoize((d: string) => dayjs(d).add(1, 'days').format('YYYY-MM-DD'))
 
-  const tomorrow = incrDay(dateToStr(new Date()))
+  const today = dateToStr(new Date())
 
   type DateCounts = Omit<CountRow, 'date'>
   const counts: Record<string, DateCounts> = {}
@@ -549,7 +549,8 @@ export async function getCounts(opts: DatabaseOptions = {}) {
 
   for (const item of todos) {
     const start = dateToStr(item.created)
-    const end = item.stop_date ? dateToStr(item.stop_date) : tomorrow
+    // Open items run through today, so the last row is today's (likely partial) count
+    const end = item.stop_date ? dateToStr(item.stop_date) : today
 
     for (let date = start; date <= end; date = incrDay(date)) {
       const dateCounts = counts[date] || initCounts()
@@ -559,7 +560,7 @@ export async function getCounts(opts: DatabaseOptions = {}) {
         dateCounts.unassigned += 1
       }
       dateCounts.total += 1
-      if (date === end && date !== tomorrow) dateCounts.completions += 1
+      if (item.stop_date && date === end) dateCounts.completions += 1
       counts[date] = dateCounts
     }
   }

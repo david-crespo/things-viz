@@ -8,6 +8,8 @@ import {
   serializeInlineJson,
 } from '../plot.ts'
 import plotTemplate from '../plot.html' with { type: 'text' }
+import { getCounts } from '../data.ts'
+import { ThingsFixture } from './fixture.ts'
 
 Deno.test('serializeInlineJson cannot terminate its script element', () => {
   const value = [{ area: '</ScRiPt><script>globalThis.injected=true</script>' }]
@@ -51,6 +53,57 @@ Deno.test('plotSeries drops a trailing zero-completion day from the average', ()
     area: 'completions',
     label: 'Completions',
   }])
+})
+
+Deno.test('getCounts ends open items today so plotSeries trims today', async () => {
+  const startOfToday = Temporal.Now.zonedDateTimeISO().startOfDay()
+  const today = startOfToday.toPlainDate().toString()
+  const yesterday = startOfToday.subtract({ days: 1 })
+  const seconds = (dt: Temporal.ZonedDateTime) => dt.epochMilliseconds / 1000
+  const longAgo = seconds(startOfToday.subtract({ days: 40 }).add({ hours: 12 }))
+
+  {
+    using fixture = new ThingsFixture()
+    fixture.addTask({ title: 'Open', creationDate: longAgo })
+    fixture.addTask({
+      title: 'Done earlier today',
+      status: 3,
+      creationDate: longAgo,
+      stopDate: seconds(startOfToday),
+    })
+
+    const counts = await getCounts({ dbPath: fixture.path })
+    deepStrictEqual(counts.at(-1), {
+      date: today,
+      total: 2,
+      completions: 1,
+      unassigned: 2,
+      areas: {},
+    })
+  }
+
+  {
+    using fixture = new ThingsFixture()
+    fixture.addTask({ title: 'Open', creationDate: longAgo })
+    fixture.addTask({
+      title: 'Done yesterday',
+      status: 3,
+      creationDate: longAgo,
+      stopDate: seconds(yesterday.add({ hours: 12 })),
+    })
+
+    const counts = await getCounts({ dbPath: fixture.path })
+    equal(counts.at(-1)?.date, today)
+    equal(counts.at(-1)?.completions, 0)
+    const averages = plotSeries(counts).filter(({ kind }) => kind === 'completion-average')
+    deepStrictEqual(averages.at(-1), {
+      date: yesterday.toPlainDate().toString(),
+      count: 1 / 30,
+      kind: 'completion-average',
+      area: 'completions',
+      label: 'Completions',
+    })
+  }
 })
 
 Deno.test('renderPlotHtml inlines the data into a full page', () => {
