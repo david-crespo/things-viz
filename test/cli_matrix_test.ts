@@ -19,7 +19,7 @@ Deno.test('projects covers status, area, dates, and distinct output branches', a
   using fixture = new ThingsFixture()
   const work = fixture.addArea({ title: 'Work' })
   const home = fixture.addArea({ title: 'Home' })
-  fixture.addTask({
+  const launch = fixture.addTask({
     type: 1,
     title: 'Launch',
     area: work,
@@ -27,8 +27,8 @@ Deno.test('projects covers status, area, dates, and distinct output branches', a
     deadline: thingsDate(2026, 8, 2),
     creationDate: unixSeconds('2026-01-02T12:00:00Z'),
   })
-  fixture.addTask({ type: 1, title: 'Backlog' })
-  fixture.addTask({
+  const backlog = fixture.addTask({ type: 1, title: 'Backlog' })
+  const shipped = fixture.addTask({
     type: 1,
     title: 'Shipped',
     status: 3,
@@ -39,6 +39,7 @@ Deno.test('projects covers status, area, dates, and distinct output branches', a
   const defaults = await runTestCli(fixture, ['projects', '--format', 'json'])
   deepStrictEqual(JSON.parse(defaults.stdout), [
     {
+      uuid: backlog,
       area: 'No area',
       project: 'Backlog',
       start: 'Anytime',
@@ -47,6 +48,7 @@ Deno.test('projects covers status, area, dates, and distinct output branches', a
       created: '2026-01-01T12:00:02.000Z',
     },
     {
+      uuid: launch,
       area: 'Work',
       project: 'Launch',
       start: 'Anytime',
@@ -64,8 +66,8 @@ Deno.test('projects covers status, area, dates, and distinct output branches', a
   ])
   equal(
     completed.stdout,
-    'area\tproject\twhen\tstart_date\tdeadline\tcreated\n' +
-      'Home\tShipped\tAnytime\t\t\t2026-01-03\n',
+    'uuid\tarea\tproject\twhen\tstart_date\tdeadline\tcreated\n' +
+      `${shipped}\tHome\tShipped\tAnytime\t\t\t2026-01-03\n`,
   )
 
   const filtered = await runTestCli(fixture, [

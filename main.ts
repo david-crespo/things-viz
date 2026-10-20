@@ -419,6 +419,7 @@ await new Command()
       .with('json', () => {
         console.log(JSON.stringify(
           projects.map((p) => ({
+            uuid: p.uuid,
             area: p.area_title,
             project: p.title,
             start: p.start,
@@ -432,8 +433,9 @@ await new Command()
       })
       .with('tsv', () => {
         renderTsv(
-          ['area', 'project', 'when', 'start_date', 'deadline', 'created'],
+          ['uuid', 'area', 'project', 'when', 'start_date', 'deadline', 'created'],
           projects.map((p) => [
+            p.uuid,
             p.area_title,
             p.title,
             p.start,
