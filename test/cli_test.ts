@@ -163,7 +163,7 @@ Deno.test('todos captures exact pretty output', async () => {
     title: 'Write summary',
     area,
     notes: 'First line\nSecond line',
-    creationDate: unixSeconds('2026-01-02T18:04:00Z'),
+    creationDate: unixSeconds('2026-01-02T12:00:00Z'),
   })
   fixture.addChecklistItem({ task: todo, title: 'Draft' })
 
@@ -176,6 +176,37 @@ Deno.test('todos captures exact pretty output', async () => {
       '  First line\n' +
       '  Second line\n' +
       '  ○ Draft\n',
+  )
+})
+
+Deno.test('pretty todos and TSV projects print created dates in local time', async () => {
+  using fixture = new ThingsFixture()
+
+  // 19:30 and 20:00 on the previous day in Chicago
+  const created = unixSeconds('2026-01-03T01:30:00Z')
+  const modified = unixSeconds('2026-01-04T02:00:00Z')
+  fixture.addTask({
+    title: 'Evening task',
+    creationDate: created,
+    modificationDate: modified,
+  })
+  const projectId = fixture.addTask({
+    type: 1,
+    title: 'Evening project',
+    creationDate: created,
+  })
+  const timeZone = 'America/Chicago'
+
+  const todos = await runTestCli(fixture, ['todos', '--format', 'pretty'], { timeZone })
+  equal(
+    todos.stdout,
+    '[No area] Evening task\n  created: 2026-01-02 | modified: 2026-01-03\n',
+  )
+
+  const projects = await runTestCli(fixture, ['projects', '--format', 'tsv'], { timeZone })
+  equal(
+    projects.stdout.split('\n')[1],
+    `${projectId}\tNo area\tEvening project\tAnytime\t\t\t2026-01-02`,
   )
 })
 

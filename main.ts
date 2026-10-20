@@ -178,6 +178,15 @@ function fmtLocalDateTime(d: Date): string {
   return dt.replace('T', ' ')
 }
 
+// Local-time YYYY-MM-DD for timestamps (not for date-only fields like start_date and
+// deadline, which are parsed as UTC midnight and must be printed back in UTC).
+function fmtLocalDate(d: Date): string {
+  return Temporal.Instant.fromEpochMilliseconds(d.getTime())
+    .toZonedDateTimeISO(Temporal.Now.timeZoneId())
+    .toPlainDate()
+    .toString()
+}
+
 function fmtLocation(todo: Todo): string {
   const area = todo.area_title || ''
   const project = todo.project_title ? ` > ${todo.project_title}` : ''
@@ -303,8 +312,8 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
         if (i > 0) console.log()
         console.log(`${location}${todo.title}`)
         const dates = [
-          `created: ${todo.created.toISOString().slice(0, 10)}`,
-          todo.modified ? `modified: ${todo.modified.toISOString().slice(0, 10)}` : null,
+          `created: ${fmtLocalDate(todo.created)}`,
+          todo.modified ? `modified: ${fmtLocalDate(todo.modified)}` : null,
           ...todoDateTags(todo),
         ].filter(Boolean)
         console.log(`  ${dates.join(' | ')}`)
@@ -492,7 +501,7 @@ await new Command()
             p.start,
             fmtDate(p.start_date),
             fmtDate(p.deadline),
-            fmtDate(p.created),
+            fmtLocalDate(p.created),
           ]),
         )
       })

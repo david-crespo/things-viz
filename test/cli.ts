@@ -27,12 +27,13 @@ export type CliTestResult = {
 export async function runTestCli(
   fixture: ThingsFixture,
   args: string[],
-  options: { stdin?: string; token?: string | null } = {},
+  options: { stdin?: string; token?: string | null; timeZone?: string } = {},
 ): Promise<CliTestResult> {
   const fixtureDir = dirname(fixture.path)
   const binDir = `${fixtureDir}/bin`
   const openLog = `${fixtureDir}/open.log`
   const osascriptLog = `${fixtureDir}/osascript.log`
+  const timeZone = options.timeZone ?? Deno.env.get('TZ')
   Deno.mkdirSync(binDir, { recursive: true })
   Deno.writeTextFileSync(
     `${binDir}/open`,
@@ -62,7 +63,7 @@ export async function runTestCli(
       NO_COLOR: '1',
       PATH: `${binDir}:${Deno.env.get('PATH')}`,
       HOME: Deno.env.get('HOME') ?? '',
-      ...(Deno.env.get('TZ') ? { TZ: Deno.env.get('TZ')! } : {}),
+      ...(timeZone ? { TZ: timeZone } : {}),
       THINGSDB: fixture.path,
       // An empty value (rather than unset) keeps the repo's real .env from supplying a
       // token via dotenv, which only fills in variables that are not already set.
