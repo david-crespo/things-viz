@@ -135,6 +135,24 @@ Deno.test('today includes undated to-dos whose deadline has arrived', async () =
   )
 })
 
+Deno.test('headings get their own item type and are not to-dos', async () => {
+  using fixture = new ThingsFixture()
+
+  const project = fixture.addTask({ type: 1, title: 'Launch' })
+  const heading = fixture.addTask({ type: 2, title: 'Follow-up', project })
+  const options = { dbPath: fixture.path }
+
+  deepStrictEqual(await getItemByUuid(heading, options), {
+    type: 'heading',
+    uuid: heading,
+    title: 'Follow-up',
+    project,
+    project_title: 'Launch',
+  })
+  equal(await getTodoByUuid(heading, options), null)
+  deepStrictEqual(await getAllItems(options), [])
+})
+
 Deno.test('getAreas and getProjects transform and filter rows', async () => {
   using fixture = new ThingsFixture()
 

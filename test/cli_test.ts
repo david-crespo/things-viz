@@ -476,6 +476,49 @@ Deno.test('delete runs the AppleScript for the item type and refuses areas', asy
   }
 })
 
+Deno.test('item shows headings, and update and delete refuse them', async () => {
+  using fixture = new ThingsFixture()
+
+  const project = fixture.addTask({ type: 1, title: 'Launch' })
+  const heading = fixture.addTask({ type: 2, title: 'Follow-up', project })
+
+  for (const format of ['short', 'json']) {
+    const item = await runTestCli(fixture, ['item', heading, '--format', format])
+    equal(item.code, 0)
+    equal(item.stdout, '[Heading] Follow-up (project: Launch)\n')
+  }
+
+  const link = await runTestCli(fixture, ['link', heading])
+  equal(link.code, 0)
+  equal(link.stdout.includes('Follow-up'), true)
+
+  const deleted = await runTestCli(fixture, ['delete', heading])
+  equal(deleted.code, 1)
+  equal(deleted.stderr, 'Refusing to delete a heading\n')
+  deepStrictEqual(deleted.osascripts, [])
+})
+
+Deno.test('update refuses unknown items, areas, and headings', async () => {
+  using fixture = new ThingsFixture()
+
+  const area = fixture.addArea({ title: 'Work' })
+  const project = fixture.addTask({ type: 1, title: 'Launch' })
+  const heading = fixture.addTask({ type: 2, title: 'Follow-up', project })
+
+  const cases = [
+    ['nope', 'Item not found: nope\n'],
+    [area, 'Refusing to update an area\n'],
+    [heading, 'Refusing to update a heading\n'],
+  ] as const
+  for (const [uuid, stderr] of cases) {
+    const result = await runTestCli(fixture, ['update', uuid, '--title', 'Renamed'])
+    equal(result.code, 1)
+    equal(result.stderr, stderr)
+    deepStrictEqual(result.launchedUrls, [])
+    deepStrictEqual(result.osascripts, [])
+  }
+})
+
 Deno.test('table distinguishes reserved area names from synthetic columns', async () => {
   using fixture = new ThingsFixture()
 

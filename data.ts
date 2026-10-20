@@ -58,7 +58,15 @@ const areaSchema = z.object({
   title: z.string(),
 })
 
-const anyItemSchema = z.union([todoSchema, projectSchema, areaSchema])
+const headingSchema = z.object({
+  type: z.literal('heading'),
+  uuid: z.string(),
+  title: z.string(),
+  project: z.string().optional(),
+  project_title: z.string().optional(),
+})
+
+const anyItemSchema = z.union([todoSchema, projectSchema, areaSchema, headingSchema])
 
 // Database path discovery
 export async function findDatabasePath(): Promise<string> {
@@ -102,13 +110,14 @@ const STATUS_MAP: Record<number, string> = {
   3: 'completed',
 }
 const START_MAP: Record<number, string> = { 0: 'Inbox', 1: 'Anytime', 2: 'Someday' }
+const TYPE_MAP: Record<number, string> = { 0: 'to-do', 1: 'project', 2: 'heading' }
 
 type Row = Record<string, unknown>
 
 function transformTask(row: Row): Record<string, unknown> {
   const result: Record<string, unknown> = {
     uuid: row.uuid,
-    type: row.type === 1 ? 'project' : 'to-do',
+    type: TYPE_MAP[row.type as number] ?? row.type,
     title: row.title,
     status: STATUS_MAP[row.status as number] ?? row.status,
   }

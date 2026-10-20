@@ -555,14 +555,19 @@ await new Command()
           console.error(`Item not found: ${uuid}`)
           Deno.exit(1)
         }
-        if (item.type === 'to-do') {
-          const todo = await getTodoByUuid(uuid)
-          renderTodos([todo!], format)
-        } else if (item.type === 'project') {
-          renderProject((await getProjectByUuid(uuid))!, format)
-        } else if (item.type === 'area') {
-          console.log(`[Area] ${item.title}`)
-        }
+        await match(item)
+          .with({ type: 'to-do' }, async () => {
+            renderTodos([(await getTodoByUuid(uuid))!], format)
+          })
+          .with({ type: 'project' }, async () => {
+            renderProject((await getProjectByUuid(uuid))!, format)
+          })
+          .with({ type: 'area' }, ({ title }) => console.log(`[Area] ${title}`))
+          .with({ type: 'heading' }, ({ title, project_title }) => {
+            const project = project_title ? ` (project: ${project_title})` : ''
+            console.log(`[Heading] ${title}${project}`)
+          })
+          .exhaustive()
       }),
   )
   .command(
@@ -665,15 +670,23 @@ await new Command()
           console.error(`Item not found: ${uuid}`)
           Deno.exit(1)
         }
-        if (item.type === 'area') {
-          console.error('Refusing to delete an area')
-          Deno.exit(1)
-        }
-        const cls = item.type === 'project' ? 'project' : 'to do'
         // Open items resolve by bare id; completed and canceled ones only resolve
         // when scoped to the Logbook list.
-        const scope = item.status === 'incomplete' ? '' : ' of list "Logbook"'
-        const script = `tell application "Things3" to delete ${cls} id "${uuid}"${scope}`
+        const scope = (status: string) =>
+          status === 'incomplete' ? '' : ' of list "Logbook"'
+        const target = match(item)
+          .with({ type: 'area' }, () => {
+            console.error('Refusing to delete an area')
+            return Deno.exit(1)
+          })
+          .with({ type: 'heading' }, () => {
+            console.error('Refusing to delete a heading')
+            return Deno.exit(1)
+          })
+          .with({ type: 'project' }, ({ status }) => `project id "${uuid}"${scope(status)}`)
+          .with({ type: 'to-do' }, ({ status }) => `to do id "${uuid}"${scope(status)}`)
+          .exhaustive()
+        const script = `tell application "Things3" to delete ${target}`
         console.error(`osascript -e '${script}'`)
         const { code, stderr } = await new Deno.Command('osascript', {
           args: ['-e', script],
@@ -740,15 +753,32 @@ await new Command()
           uuid: string,
         ) => {
           const token = requireToken()
+          const item = await getItemByUuid(uuid)
+          if (!item) {
+            console.error(`Item not found: ${uuid}`)
+            Deno.exit(1)
+          }
+          // The URL scheme can only update to-dos and projects
+          const action = match(item)
+            .with({ type: 'area' }, () => {
+              console.error('Refusing to update an area')
+              return Deno.exit(1)
+            })
+            .with({ type: 'heading' }, () => {
+              console.error('Refusing to update a heading')
+              return Deno.exit(1)
+            })
+            .with({ type: 'project' }, () => 'update-project')
+            .with({ type: 'to-do' }, () => 'update')
+            .exhaustive()
           const params: Record<string, string> = { id: uuid, 'auth-token': token }
           if (title) params.title = title
-          const item = await getItemByUuid(uuid)
           applyChange(params, 'notes', notes)
           // Auto-separate from existing notes with a line break. Things 3
           // doesn't render markdown, so visual separation matters. With no
           // existing notes, a separator would just be a leading line break,
           // but prepended and appended text still need one between them.
-          const sep = item && 'notes' in item && item.notes?.trim() ? '\n' : ''
+          const sep = 'notes' in item && item.notes?.trim() ? '\n' : ''
           if (prependNotes) params['prepend-notes'] = prependNotes + sep
           if (appendNotes) {
             params['append-notes'] = (sep || (prependNotes ? '\n' : '')) + appendNotes
@@ -766,7 +796,6 @@ await new Command()
           if (prependChecklist) {
             params['prepend-checklist-items'] = prependChecklist.join('\n')
           }
-          const action = item?.type === 'project' ? 'update-project' : 'update'
           await openThingsUrl(action, params)
         },
       ),
