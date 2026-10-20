@@ -246,6 +246,25 @@ Deno.test('add project covers the ordinary URL contract', async () => {
   })
 })
 
+Deno.test('add omits an empty deadline', async () => {
+  using fixture = new ThingsFixture()
+
+  const cases = [
+    { args: ['add', 'todo', 'Task', '--deadline', ''], action: '/add' },
+    { args: ['add', 'todo', 'Task', '--deadline='], action: '/add' },
+    { args: ['add', 'project', 'Launch', '--deadline', ''], action: '/add-project' },
+  ]
+  for (const { args, action } of cases) {
+    const result = await runTestCli(fixture, args)
+    equal(result.code, 0)
+    equal(result.launchedUrls.length, 1)
+    equal(result.launchedUrls[0].includes('%00'), false)
+    const url = new URL(result.launchedUrls[0])
+    equal(url.pathname, action)
+    equal(url.searchParams.has('deadline'), false)
+  }
+})
+
 Deno.test('update covers the remaining URL fields and token failure', async () => {
   using fixture = new ThingsFixture()
   const todo = fixture.addTask({ title: 'Task' })

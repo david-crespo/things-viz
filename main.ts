@@ -83,19 +83,31 @@ const formatOption = {
 
 const EMPTY_UPDATE_VALUE = '\0'
 const CLEARABLE_UPDATE_OPTIONS = new Set(['--notes', '--deadline'])
+const OMITTABLE_ADD_OPTIONS = new Set(['--deadline'])
 
 // Cliffy rc.8 treats an empty string as a missing required option value. Preserve it through
 // parsing so update can distinguish an omitted field from a field the user wants to clear.
-function preserveEmptyUpdateValues(args: readonly string[]): string[] {
-  return args.map((arg, index) => {
-    if (arg === '' && CLEARABLE_UPDATE_OPTIONS.has(args[index - 1])) {
-      return EMPTY_UPDATE_VALUE
+// A new item has nothing to clear, so for add an empty value just drops the option.
+function handleEmptyOptionValues(args: readonly string[]): string[] {
+  const command = args[0]
+  const options = command === 'update'
+    ? CLEARABLE_UPDATE_OPTIONS
+    : command === 'add'
+    ? OMITTABLE_ADD_OPTIONS
+    : new Set<string>()
+  const result: string[] = []
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]
+    if (options.has(arg) && args[index + 1] === '') {
+      index++
+      if (command === 'update') result.push(arg, EMPTY_UPDATE_VALUE)
+    } else if (arg.endsWith('=') && options.has(arg.slice(0, -1))) {
+      if (command === 'update') result.push(`${arg}${EMPTY_UPDATE_VALUE}`)
+    } else {
+      result.push(arg)
     }
-    for (const option of CLEARABLE_UPDATE_OPTIONS) {
-      if (arg === `${option}=`) return `${option}=${EMPTY_UPDATE_VALUE}`
-    }
-    return arg
-  })
+  }
+  return result
 }
 
 function applyChange(
@@ -750,4 +762,4 @@ await new Command()
         },
       ),
   )
-  .parse(preserveEmptyUpdateValues(Deno.args))
+  .parse(handleEmptyOptionValues(Deno.args))
