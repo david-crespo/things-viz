@@ -274,8 +274,8 @@ Deno.test('update covers the remaining URL fields and token failure', async () =
   deepStrictEqual(Object.fromEntries(new URL(result.launchedUrls[0]).searchParams), {
     id: todo,
     'auth-token': 'test-token',
-    'prepend-notes': 'Before\n',
-    'append-notes': '\nAfter',
+    'prepend-notes': 'Before',
+    'append-notes': 'After',
     when: 'tomorrow',
     heading: 'Plan',
     completed: 'true',

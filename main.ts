@@ -721,11 +721,14 @@ await new Command()
           const token = requireToken()
           const params: Record<string, string> = { id: uuid, 'auth-token': token }
           if (title) params.title = title
+          const item = await getItemByUuid(uuid)
           applyChange(params, 'notes', notes)
           // Auto-separate from existing notes with a blank line. Things 3
-          // doesn't render markdown, so visual separation matters.
-          if (prependNotes) params['prepend-notes'] = prependNotes + '\n'
-          if (appendNotes) params['append-notes'] = '\n' + appendNotes
+          // doesn't render markdown, so visual separation matters. With no
+          // existing notes, a separator would just be a leading blank line.
+          const sep = item && 'notes' in item && item.notes?.trim() ? '\n' : ''
+          if (prependNotes) params['prepend-notes'] = prependNotes + sep
+          if (appendNotes) params['append-notes'] = sep + appendNotes
           if (when) params.when = when
           applyChange(params, 'deadline', deadline)
           if (heading) params.heading = heading
@@ -739,7 +742,6 @@ await new Command()
           if (prependChecklist) {
             params['prepend-checklist-items'] = prependChecklist.join('\n')
           }
-          const item = await getItemByUuid(uuid)
           const action = item?.type === 'project' ? 'update-project' : 'update'
           await openThingsUrl(action, params)
         },

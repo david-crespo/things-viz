@@ -346,6 +346,23 @@ Deno.test('update dispatches to the URL command for the item type', async () => 
   }
 })
 
+Deno.test('update separates prepended and appended notes only from existing notes', async () => {
+  using fixture = new ThingsFixture()
+
+  const todoId = fixture.addTask({ title: 'Task', notes: 'Existing' })
+  const result = await runTestCli(fixture, [
+    'update',
+    todoId,
+    '--prepend-notes',
+    'Before',
+    '--append-notes',
+    'After',
+  ])
+  const params = new URL(result.launchedUrls[0]).searchParams
+  equal(params.get('prepend-notes'), 'Before\n')
+  equal(params.get('append-notes'), '\nAfter')
+})
+
 Deno.test('update distinguishes empty fields from omitted fields', async () => {
   using fixture = new ThingsFixture()
 
