@@ -1,5 +1,9 @@
 {
   "unstable": ["raw-imports"],
+  "compilerOptions": {
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+  },
   "tasks": {
     // The narrow test permissions guarantee tests can't touch a real Things DB (see
     // test/cli.ts for the subprocess side). Don't widen them to fix a failing test.
