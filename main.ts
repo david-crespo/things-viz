@@ -1,4 +1,4 @@
-#!/usr/bin/env deno run --allow-net=0.0.0.0:8000 --allow-env --allow-read --allow-run=open,osascript
+#!/usr/bin/env node
 
 import { execFile, spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
@@ -27,7 +27,6 @@ import {
   type ViewName,
 } from './data.ts'
 import { plotSeries, renderPlotHtml } from './plot.ts'
-import plotTemplate from './plot.html' with { type: 'text' }
 
 // Found on first use, so commands that never read the database work without one
 const dbPath = memoize(findDatabasePath)
@@ -359,6 +358,7 @@ program
     const hostname = '0.0.0.0'
     const port = 8000
     const url = `http://${hostname}:${port}`
+    const plotTemplate = readFileSync(`${import.meta.dirname}/plot.html`, 'utf8')
 
     const server = createServer(async (_req, res) => {
       try {

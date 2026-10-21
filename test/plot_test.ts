@@ -1,4 +1,5 @@
 import { deepStrictEqual, equal } from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import {
@@ -8,7 +9,6 @@ import {
   renderPlotHtml,
   serializeInlineJson,
 } from '../plot.ts'
-import plotTemplate from '../plot.html' with { type: 'text' }
 import { getCounts } from '../data.ts'
 import { ThingsFixture } from './fixture.ts'
 
@@ -110,6 +110,7 @@ test('getCounts ends open items today so plotSeries trims today', async () => {
 })
 
 test('renderPlotHtml inlines the data into a full page', () => {
+  const plotTemplate = readFileSync(`${import.meta.dirname}/../plot.html`, 'utf8')
   const html = renderPlotHtml(plotTemplate, [{ area: 'Work' }])
 
   equal(html.includes('</html>'), true)

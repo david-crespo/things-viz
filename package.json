@@ -6,10 +6,13 @@
   },
   "type": "module",
   "scripts": {
+    "ci": "npm run fmt:check && npm run lint && npm run check && npm test",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint --deny-warnings",
-    "check": "tsc"
+    "check": "tsc",
+    "test": "env -u THINGSDB -u NODE_OPTIONS node --permission --allow-fs-read=. --allow-fs-write=test/.tmp --allow-child-process --test 'test/*_test.ts'",
+    "verify:real-schema": "node --permission --allow-fs-read='*' --allow-fs-write=test/.tmp tools/verify-fixture-schema.ts"
   },
   "dependencies": {
     "@commander-js/extra-typings": "^15.0.0",

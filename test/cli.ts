@@ -1,6 +1,9 @@
+import { spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import process from 'node:process'
+import { text } from 'node:stream/consumers'
 
 import type { ThingsFixture } from './fixture.ts'
 
@@ -19,17 +22,24 @@ export type CliTestResult = {
  *
  * The permission flags below are the safety boundary that keeps tests away from real
  * data, so do not loosen them to fix a failing test. The child can only read within
- * this repo (a real Things database, under ~/Library, is unreachable), cannot write
- * or use the network at all, and can run only `open` and `osascript` — both of which
- * resolve to stubs below that record their arguments instead of running. The stubs
- * matter as much as the read sandbox: `add`/`update` tests produce `things:///` URLs
- * and `delete` tests produce AppleScript that would otherwise write to the real Things
- * app.
+ * this repo (a real Things database, under ~/Library, is unreachable), and cannot write
+ * or use the network at all. node:sqlite skips the read check, so `openDatabase` in
+ * data.ts does it. Node can't limit which programs a child runs, so PATH holds only
+ * the stubs below, which record their arguments instead of running: `open` and
+ * `osascript` by name reach nothing else. The stubs matter as much as the read sandbox:
+ * `add`/`update` tests produce `things:///` URLs and `delete` tests produce AppleScript
+ * that would otherwise write to the real Things app.
  */
 export async function runTestCli(
   fixture: ThingsFixture,
   args: string[],
-  options: { stdin?: string; token?: string | null; timeZone?: string } = {},
+  options: {
+    stdin?: string
+    token?: string | null
+    timeZone?: string
+    // Points THINGSDB somewhere other than the fixture
+    dbPath?: string
+  } = {},
 ): Promise<CliTestResult> {
   const fixtureDir = dirname(fixture.path)
   const binDir = `${fixtureDir}/bin`
@@ -47,52 +57,46 @@ export async function runTestCli(
     { mode: 0o755 },
   )
 
-  // Stays on Deno.Command until the switch to Node: Deno's node:child_process reads
-  // NODE_V8_COVERAGE, which the test permissions don't allow.
-  const child = new Deno.Command('deno', {
+  const child = spawn(
+    process.execPath,
     // Safety boundary; see the doc comment above before adding a permission.
-    args: [
-      'run',
-      '--no-prompt',
-      `--allow-read=${ROOT}`,
-      '--allow-env',
-      '--allow-run=open,osascript',
+    [
+      // Node warns on stderr that --allow-child-process weakens the model
+      '--disable-warning=PERM0002',
+      '--permission',
+      `--allow-fs-read=${ROOT}`,
+      '--allow-child-process',
       `${ROOT}main.ts`,
       ...args,
     ],
-    clearEnv: true,
-    env: {
-      NO_COLOR: '1',
-      PATH: `${binDir}:${process.env.PATH}`,
-      HOME: process.env.HOME ?? '',
-      ...(timeZone ? { TZ: timeZone } : {}),
-      THINGSDB: fixture.path,
-      // An empty value (rather than unset) keeps the repo's real .env from supplying a
-      // token via dotenv, which only fills in variables that are not already set.
-      THINGS_TOKEN: options.token === null ? '' : (options.token ?? 'test-token'),
+    {
+      // Replaces the environment rather than adding to it
+      env: {
+        NO_COLOR: '1',
+        PATH: binDir,
+        HOME: process.env.HOME ?? '',
+        ...(timeZone ? { TZ: timeZone } : {}),
+        THINGSDB: options.dbPath ?? fixture.path,
+        // An empty value (rather than unset) keeps the repo's real .env from supplying a
+        // token via dotenv, which only fills in variables that are not already set.
+        THINGS_TOKEN: options.token === null ? '' : (options.token ?? 'test-token'),
+      },
     },
-    stdin: options.stdin === undefined ? 'null' : 'piped',
-    stdout: 'piped',
-    stderr: 'piped',
-  }).spawn()
+  )
+  // Without input, stdin is just closed, like /dev/null
+  child.stdin.end(options.stdin)
+  const [stdout, stderr, [code]] = await Promise.all([
+    text(child.stdout),
+    text(child.stderr),
+    once(child, 'close'),
+  ])
 
-  if (options.stdin !== undefined) {
-    const writer = child.stdin.getWriter()
-    await writer.write(new TextEncoder().encode(options.stdin))
-    await writer.close()
-  }
-  const { code, stdout, stderr } = await child.output()
-
-  const launchedUrls = readLog(openLog)
-  const osascripts = readLog(osascriptLog)
-
-  const decoder = new TextDecoder()
   return {
     code,
-    stdout: decoder.decode(stdout),
-    stderr: decoder.decode(stderr),
-    launchedUrls,
-    osascripts,
+    stdout,
+    stderr,
+    launchedUrls: readLog(openLog),
+    osascripts: readLog(osascriptLog),
   }
 }
 

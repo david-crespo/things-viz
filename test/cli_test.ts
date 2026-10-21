@@ -1,4 +1,5 @@
 import { deepStrictEqual, equal } from 'node:assert/strict'
+import process from 'node:process'
 import { test } from 'node:test'
 import { z } from 'zod'
 
@@ -253,6 +254,19 @@ test('CLI reports validation and domain failures on stderr', async () => {
   equal(missingItem.code, 1)
   equal(missingItem.stdout, '')
   equal(missingItem.stderr, 'Item not found: missing\n')
+})
+
+test('CLI refuses to open a database outside its read permission', async () => {
+  using fixture = new ThingsFixture()
+
+  // node:sqlite skips Node's permission checks, so this relies on the guard in
+  // openDatabase. The file doesn't exist, so a broken guard fails with a different error
+  // instead of reading anything.
+  const outside = `${process.env.HOME}/Library/tviz-guard-test/main.sqlite`
+  const result = await runTestCli(fixture, ['table'], { dbPath: outside })
+  equal(result.code, 1)
+  equal(result.stdout, '')
+  equal(result.stderr.includes(`Read access denied: ${outside}`), true)
 })
 
 test('CLI prints help and reports parser failures', async () => {
