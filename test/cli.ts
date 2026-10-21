@@ -1,13 +1,13 @@
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { text } from 'node:stream/consumers'
 
 import type { ThingsFixture } from './fixture.ts'
 
-const ROOT = new URL('..', import.meta.url).pathname
+const ROOT = resolve(import.meta.dirname, '..')
 
 export type CliTestResult = {
   code: number
@@ -66,7 +66,7 @@ export async function runTestCli(
       '--permission',
       `--allow-fs-read=${ROOT}`,
       '--allow-child-process',
-      `${ROOT}main.ts`,
+      `${ROOT}/main.ts`,
       ...args,
     ],
     {
