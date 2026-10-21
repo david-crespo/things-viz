@@ -1,5 +1,7 @@
 #!/usr/bin/env deno run --allow-net=0.0.0.0:8000 --allow-env=THINGSDB,HOME,THINGS_TOKEN --allow-read --allow-run=open,osascript
 
+import { execFile, spawn } from 'node:child_process'
+import { createServer } from 'node:http'
 import process from 'node:process'
 import { text } from 'node:stream/consumers'
 import { z } from 'zod'
@@ -51,6 +53,18 @@ async function readStdin(): Promise<string | undefined> {
   return buf.trimEnd()
 }
 
+// Run a command to completion. Rejects only if it can't be started.
+function run(command: string, args: string[]): Promise<{ code: number; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    execFile(command, args, (error, _stdout, stderr) => {
+      if (!error) return resolve({ code: 0, stderr })
+      // A number is the exit code; a string like ENOENT means it never ran
+      if (typeof error.code !== 'number') return reject(error)
+      resolve({ code: error.code, stderr })
+    })
+  })
+}
+
 async function openThingsUrl(action: string, params: Record<string, string>) {
   const query = Object.entries(params)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
@@ -63,7 +77,7 @@ async function openThingsUrl(action: string, params: Record<string, string>) {
     )
     .join('&')
   console.error(`things:///${action}?${displayQuery}`)
-  const { code } = await new Deno.Command('open', { args: [urlStr] }).output()
+  const { code } = await run('open', [urlStr])
   if (code !== 0) {
     console.error(`Failed to open URL (exit code ${code})`)
     process.exit(1)
@@ -356,27 +370,30 @@ await new Command()
   .command('plot')
   .description('run server showing plot')
   .action(() => {
-    const serveOptions = { hostname: '0.0.0.0', port: 8000 }
-    const url = `http://${serveOptions.hostname}:${serveOptions.port}`
+    const hostname = '0.0.0.0'
+    const port = 8000
+    const url = `http://${hostname}:${port}`
 
-    async function handler() {
-      const counts = getCounts({ dbPath: await dbPath() })
-      const html = renderPlotHtml(plotTemplate, plotSeries(counts))
-      return new Response(html, { headers: { 'content-type': 'text/html' } })
-    }
-
-    try {
-      Deno.serve(serveOptions, handler)
-    } catch (e) {
-      if (e instanceof Deno.errors.AddrInUse) {
-        console.error(`Server already running at ${url}. Opening...`)
-        // still open it
-        new Deno.Command('open', { args: [url] }).spawn()
-        return
+    const server = createServer(async (_req, res) => {
+      try {
+        const counts = getCounts({ dbPath: await dbPath() })
+        res.writeHead(200, { 'content-type': 'text/html' })
+        res.end(renderPlotHtml(plotTemplate, plotSeries(counts)))
+      } catch (e) {
+        console.error(e)
+        res.writeHead(500).end()
       }
-      throw e
-    }
-    new Deno.Command('open', { args: [url] }).spawn()
+    })
+    server.on('error', (e: NodeJS.ErrnoException) => {
+      if (e.code !== 'EADDRINUSE') throw e
+      console.error(`Server already running at ${url}. Opening...`)
+      // still open it
+      spawn('open', [url], { stdio: 'ignore' })
+    })
+    server.listen(port, hostname, () => {
+      console.log(`Listening on ${url}`)
+      spawn('open', [url], { stdio: 'ignore' })
+    })
   })
   .reset()
   .command('logbook')
@@ -703,11 +720,9 @@ await new Command()
           .exhaustive()
         const script = `tell application "Things3" to delete ${target}`
         console.error(`osascript -e '${script}'`)
-        const { code, stderr } = await new Deno.Command('osascript', {
-          args: ['-e', script],
-        }).output()
+        const { code, stderr } = await run('osascript', ['-e', script])
         if (code !== 0) {
-          console.error(new TextDecoder().decode(stderr).trimEnd())
+          console.error(stderr.trimEnd())
           console.error(`Failed to delete (exit code ${code})`)
           process.exit(1)
         }
