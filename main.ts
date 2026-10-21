@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import process from 'node:process'
 import { text } from 'node:stream/consumers'
-import { parseEnv } from 'node:util'
+import { parseEnv, styleText } from 'node:util'
 import memoize from 'memoize'
 import { match } from 'ts-pattern'
 import { Command, InvalidArgumentError, Option } from '@commander-js/extra-typings'
@@ -111,15 +111,6 @@ function parseInteger(value: string) {
 
 // For repeatable options
 const collect = (value: string, previous: string[] = []) => [...previous, value]
-
-function viewCommand(view: ViewName, description: string) {
-  return new Command(view)
-    .description(description)
-    .addOption(formatOption())
-    .action(async ({ format }) =>
-      renderTodos(getViewItems(view, { dbPath: await dbPath() }), format),
-    )
-}
 
 function renderCountsTable(counts: CountRow[]) {
   if (counts.length === 0) return
@@ -337,10 +328,22 @@ function renderTodos(todos: Todo[], format: RenderFormat, showArea = true) {
     .exhaustive()
 }
 
+const style = (format: Parameters<typeof styleText>[0], str: string) =>
+  styleText(format, str, { validateStream: false })
+
 const program = new Command()
   .name('tviz')
   .description('Visualize Things 3 data')
   .helpCommand(false)
+  // Subcommands made with .command() copy these. Commander strips the colors when the
+  // output isn't a terminal or NO_COLOR is set, so styleText doesn't need to check.
+  .configureHelp({
+    styleTitle: (str) => style('bold', str),
+    styleOptionText: (str) => style('blueBright', str),
+    styleSubcommandText: (str) => style('blueBright', str),
+    styleArgumentText: (str) => style('magentaBright', str),
+  })
+  .configureOutput({ outputError: (str, write) => write(style('red', str)) })
 
 program
   .command('table')
@@ -531,15 +534,22 @@ program
       .exhaustive()
   })
 
-program.addCommand(viewCommand('today', 'list tasks in Today view'))
-program.addCommand(viewCommand('inbox', 'list tasks in Inbox'))
-program.addCommand(
-  viewCommand('anytime', 'list tasks in Anytime view (no schedule, ready to do)'),
-)
-program.addCommand(
-  viewCommand('upcoming', 'list tasks in Upcoming view (scheduled for future)'),
-)
-program.addCommand(viewCommand('someday', 'list tasks in Someday view (deferred)'))
+const views: [ViewName, string][] = [
+  ['today', 'list tasks in Today view'],
+  ['inbox', 'list tasks in Inbox'],
+  ['anytime', 'list tasks in Anytime view (no schedule, ready to do)'],
+  ['upcoming', 'list tasks in Upcoming view (scheduled for future)'],
+  ['someday', 'list tasks in Someday view (deferred)'],
+]
+for (const [view, description] of views) {
+  program
+    .command(view)
+    .description(description)
+    .addOption(formatOption())
+    .action(async ({ format }) =>
+      renderTodos(getViewItems(view, { dbPath: await dbPath() }), format),
+    )
+}
 
 program
   .command('link')
