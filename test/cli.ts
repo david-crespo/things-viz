@@ -1,8 +1,13 @@
-import { dirname } from 'node:path'
+import { spawn } from 'node:child_process'
+import { once } from 'node:events'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import process from 'node:process'
+import { text } from 'node:stream/consumers'
 
 import type { ThingsFixture } from './fixture.ts'
 
-const ROOT = new URL('..', import.meta.url).pathname
+const ROOT = resolve(import.meta.dirname, '..')
 
 export type CliTestResult = {
   code: number
@@ -17,90 +22,91 @@ export type CliTestResult = {
  *
  * The permission flags below are the safety boundary that keeps tests away from real
  * data, so do not loosen them to fix a failing test. The child can only read within
- * this repo (a real Things database, under ~/Library, is unreachable), cannot write
- * or use the network at all, and can run only `open` and `osascript` — both of which
- * resolve to stubs below that record their arguments instead of running. The stubs
- * matter as much as the read sandbox: `add`/`update` tests produce `things:///` URLs
- * and `delete` tests produce AppleScript that would otherwise write to the real Things
- * app.
+ * this repo (a real Things database, under ~/Library, is unreachable), and cannot write
+ * or use the network at all. node:sqlite skips the read check, so `openDatabase` in
+ * data.ts does it. Node can't limit which programs a child runs, so PATH holds only
+ * the stubs below, which record their arguments instead of running: `open` and
+ * `osascript` by name reach nothing else. The stubs matter as much as the read sandbox:
+ * `add`/`update` tests produce `things:///` URLs and `delete` tests produce AppleScript
+ * that would otherwise write to the real Things app.
  */
 export async function runTestCli(
   fixture: ThingsFixture,
   args: string[],
-  options: { stdin?: string; token?: string | null; timeZone?: string } = {},
+  options: {
+    stdin?: string
+    token?: string | null
+    timeZone?: string
+    // Points THINGSDB somewhere other than the fixture
+    dbPath?: string
+  } = {},
 ): Promise<CliTestResult> {
   const fixtureDir = dirname(fixture.path)
   const binDir = `${fixtureDir}/bin`
   const openLog = `${fixtureDir}/open.log`
   const osascriptLog = `${fixtureDir}/osascript.log`
-  const timeZone = options.timeZone ?? Deno.env.get('TZ')
-  Deno.mkdirSync(binDir, { recursive: true })
-  Deno.writeTextFileSync(
-    `${binDir}/open`,
-    `#!/bin/sh\nprintf '%s\\n' "$1" >> '${openLog}'\n`,
-    { mode: 0o755 },
-  )
+  const timeZone = options.timeZone ?? process.env.TZ
+  mkdirSync(binDir, { recursive: true })
+  writeFileSync(`${binDir}/open`, `#!/bin/sh\nprintf '%s\\n' "$1" >> '${openLog}'\n`, {
+    mode: 0o755,
+  })
   // Records the script passed via `-e`.
-  Deno.writeTextFileSync(
+  writeFileSync(
     `${binDir}/osascript`,
     `#!/bin/sh\nprintf '%s\\n' "$2" >> '${osascriptLog}'\n`,
     { mode: 0o755 },
   )
 
-  const child = new Deno.Command('deno', {
+  const child = spawn(
+    process.execPath,
     // Safety boundary; see the doc comment above before adding a permission.
-    args: [
-      'run',
-      '--no-prompt',
-      `--allow-read=${ROOT}`,
-      '--allow-env',
-      '--allow-run=open,osascript',
-      `${ROOT}main.ts`,
+    [
+      // Node warns on stderr that --allow-child-process weakens the model
+      '--disable-warning=PERM0002',
+      '--permission',
+      `--allow-fs-read=${ROOT}`,
+      '--allow-child-process',
+      `${ROOT}/main.ts`,
       ...args,
     ],
-    clearEnv: true,
-    env: {
-      NO_COLOR: '1',
-      PATH: `${binDir}:${Deno.env.get('PATH')}`,
-      HOME: Deno.env.get('HOME') ?? '',
-      ...(timeZone ? { TZ: timeZone } : {}),
-      THINGSDB: fixture.path,
-      // An empty value (rather than unset) keeps the repo's real .env from supplying a
-      // token via dotenv, which only fills in variables that are not already set.
-      THINGS_TOKEN: options.token === null ? '' : (options.token ?? 'test-token'),
+    {
+      // Replaces the environment rather than adding to it
+      env: {
+        NO_COLOR: '1',
+        PATH: binDir,
+        HOME: process.env.HOME ?? '',
+        ...(timeZone ? { TZ: timeZone } : {}),
+        THINGSDB: options.dbPath ?? fixture.path,
+        // An empty value (rather than unset) keeps the repo's real .env from supplying a
+        // token via dotenv, which only fills in variables that are not already set.
+        THINGS_TOKEN: options.token === null ? '' : (options.token ?? 'test-token'),
+      },
     },
-    stdin: options.stdin === undefined ? 'null' : 'piped',
-    stdout: 'piped',
-    stderr: 'piped',
-  }).spawn()
+  )
+  // Without input, stdin is just closed, like /dev/null
+  child.stdin.end(options.stdin)
+  const [stdout, stderr, [code]] = await Promise.all([
+    text(child.stdout),
+    text(child.stderr),
+    once(child, 'close'),
+  ])
 
-  if (options.stdin !== undefined) {
-    const writer = child.stdin.getWriter()
-    await writer.write(new TextEncoder().encode(options.stdin))
-    await writer.close()
-  }
-  const { code, stdout, stderr } = await child.output()
-
-  const launchedUrls = readLog(openLog)
-  const osascripts = readLog(osascriptLog)
-
-  const decoder = new TextDecoder()
   return {
     code,
-    stdout: decoder.decode(stdout),
-    stderr: decoder.decode(stderr),
-    launchedUrls,
-    osascripts,
+    stdout,
+    stderr,
+    launchedUrls: readLog(openLog),
+    osascripts: readLog(osascriptLog),
   }
 }
 
 function readLog(path: string): string[] {
   try {
-    const lines = Deno.readTextFileSync(path).trimEnd().split('\n')
-    Deno.removeSync(path)
+    const lines = readFileSync(path, 'utf8').trimEnd().split('\n')
+    rmSync(path)
     return lines
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     return []
   }
 }

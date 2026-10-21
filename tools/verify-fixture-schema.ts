@@ -2,8 +2,9 @@
 // fixture column must exist in the real schema with the same SQLite type affinity.
 // Reads schema metadata only, never task rows.
 //
-//   deno task verify:real-schema
+//   npm run verify:real-schema
 
+import process from 'node:process'
 import { DatabaseSync } from 'node:sqlite'
 import { z } from 'zod'
 
@@ -68,5 +69,5 @@ if (import.meta.main) {
 
   for (const problem of problems) console.error(`FAIL: ${problem}`)
   if (problems.length === 0) console.log('PASS: fixture matches the real schema')
-  Deno.exit(problems.length === 0 ? 0 : 1)
+  process.exit(problems.length === 0 ? 0 : 1)
 }

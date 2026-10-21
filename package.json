@@ -1,0 +1,31 @@
+{
+  "name": "things-viz",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "ci": "npm run fmt:check && npm run lint && npm run check && npm test",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint --deny-warnings",
+    "check": "tsc",
+    "test": "env -u THINGSDB -u NODE_OPTIONS node --permission --allow-fs-read=. --allow-fs-write=test/.tmp --allow-child-process --test 'test/*_test.ts'",
+    "verify:real-schema": "node --permission --allow-fs-read='*' --allow-fs-write=test/.tmp tools/verify-fixture-schema.ts"
+  },
+  "dependencies": {
+    "@commander-js/extra-typings": "^15.0.0",
+    "commander": "^15.0.0",
+    "dayjs": "^1.11.18",
+    "memoize": "^10.1.0",
+    "ts-pattern": "^5.9.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "oxfmt": "^0.74.0",
+    "oxlint": "^1.89.0",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

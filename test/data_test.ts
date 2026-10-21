@@ -1,4 +1,5 @@
 import { deepStrictEqual, equal } from 'node:assert/strict'
+import { test } from 'node:test'
 
 import {
   countsToPlotData,
@@ -13,7 +14,7 @@ import {
 } from '../data.ts'
 import { thingsDate, ThingsFixture, unixSeconds } from './fixture.ts'
 
-Deno.test('getAllItems filters by status and excludes internal rows', async () => {
+test('getAllItems filters by status and excludes internal rows', async () => {
   using fixture = new ThingsFixture()
 
   fixture.addTask({ title: 'Incomplete' })
@@ -46,7 +47,7 @@ Deno.test('getAllItems filters by status and excludes internal rows', async () =
   )
 })
 
-Deno.test('getAllItems resolves heading hierarchy and checklist items', async () => {
+test('getAllItems resolves heading hierarchy and checklist items', async () => {
   using fixture = new ThingsFixture()
 
   const area = fixture.addArea({ title: 'Work' })
@@ -87,7 +88,7 @@ Deno.test('getAllItems resolves heading hierarchy and checklist items', async ()
   )
 })
 
-Deno.test('view queries select and order representative tasks', async () => {
+test('view queries select and order representative tasks', async () => {
   using fixture = new ThingsFixture()
 
   const arrived = thingsDate(2000, 1, 1)
@@ -119,7 +120,7 @@ Deno.test('view queries select and order representative tasks', async () => {
   )
 })
 
-Deno.test('today includes undated to-dos whose deadline has arrived', async () => {
+test('today includes undated to-dos whose deadline has arrived', async () => {
   using fixture = new ThingsFixture()
 
   const today = Temporal.Now.plainDateISO()
@@ -144,7 +145,7 @@ Deno.test('today includes undated to-dos whose deadline has arrived', async () =
   )
 })
 
-Deno.test('headings get their own item type and are not to-dos', async () => {
+test('headings get their own item type and are not to-dos', async () => {
   using fixture = new ThingsFixture()
 
   const project = fixture.addTask({ type: 1, title: 'Launch' })
@@ -162,7 +163,7 @@ Deno.test('headings get their own item type and are not to-dos', async () => {
   deepStrictEqual(await getAllItems(options), [])
 })
 
-Deno.test('getAreas and getProjects transform and filter rows', async () => {
+test('getAreas and getProjects transform and filter rows', async () => {
   using fixture = new ThingsFixture()
 
   const work = fixture.addArea({ title: 'Work', index: 2 })
@@ -198,7 +199,7 @@ Deno.test('getAreas and getProjects transform and filter rows', async () => {
   equal(projects[0].created?.toISOString(), '2026-01-15T12:00:00.000Z')
 })
 
-Deno.test('getAllItems resolves direct projects and excludes invalid parents', async () => {
+test('getAllItems resolves direct projects and excludes invalid parents', async () => {
   using fixture = new ThingsFixture()
 
   const area = fixture.addArea({ title: 'Work' })
@@ -238,7 +239,7 @@ Deno.test('getAllItems resolves direct projects and excludes invalid parents', a
   equal(items[0].area_title, 'Work')
 })
 
-Deno.test('getAllItems transforms dates and scheduling state', async () => {
+test('getAllItems transforms dates and scheduling state', async () => {
   using fixture = new ThingsFixture()
 
   fixture.addTask({
@@ -263,7 +264,7 @@ Deno.test('getAllItems transforms dates and scheduling state', async () => {
   equal(item.modified?.toISOString(), '2026-03-02T04:05:06.000Z')
 })
 
-Deno.test('item lookup handles to-dos, projects, areas, and missing IDs', async () => {
+test('item lookup handles to-dos, projects, areas, and missing IDs', async () => {
   using fixture = new ThingsFixture()
 
   const area = fixture.addArea({ title: 'Work' })
@@ -287,7 +288,7 @@ Deno.test('item lookup handles to-dos, projects, areas, and missing IDs', async 
   )
 })
 
-Deno.test('anytime excludes completed, trashed, and recurring tasks', async () => {
+test('anytime excludes completed, trashed, and recurring tasks', async () => {
   using fixture = new ThingsFixture()
 
   fixture.addTask({ title: 'Ready', start: 1 })
@@ -307,7 +308,7 @@ Deno.test('anytime excludes completed, trashed, and recurring tasks', async () =
   )
 })
 
-Deno.test('getCounts reconstructs historical area totals and stop events', async () => {
+test('getCounts reconstructs historical area totals and stop events', async () => {
   using fixture = new ThingsFixture()
 
   const work = fixture.addArea({ title: 'Work' })
@@ -350,7 +351,7 @@ Deno.test('getCounts reconstructs historical area totals and stop events', async
   ])
 })
 
-Deno.test('getCounts buckets timestamps by local calendar day', async () => {
+test('getCounts buckets timestamps by local calendar day', async () => {
   using fixture = new ThingsFixture()
 
   fixture.addTask({
@@ -384,7 +385,7 @@ Deno.test('getCounts buckets timestamps by local calendar day', async () => {
   ])
 })
 
-Deno.test('getCounts keeps reserved area names separate from synthetic series', async () => {
+test('getCounts keeps reserved area names separate from synthetic series', async () => {
   using fixture = new ThingsFixture()
 
   const totalArea = fixture.addArea({ title: 'Total' })
@@ -435,7 +436,7 @@ Deno.test('getCounts keeps reserved area names separate from synthetic series', 
   )
 })
 
-Deno.test('getCounts returns no rows for an empty database', async () => {
+test('getCounts returns no rows for an empty database', async () => {
   using fixture = new ThingsFixture()
 
   deepStrictEqual(await getCounts({ dbPath: fixture.path }), [])

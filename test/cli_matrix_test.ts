@@ -1,9 +1,10 @@
 import { deepStrictEqual, equal } from 'node:assert/strict'
+import { test } from 'node:test'
 
 import { runTestCli } from './cli.ts'
 import { thingsDate, ThingsFixture, unixSeconds } from './fixture.ts'
 
-Deno.test('areas covers its distinct output branches', async () => {
+test('areas covers its distinct output branches', async () => {
   using fixture = new ThingsFixture()
   fixture.addArea({ title: 'Work' })
   fixture.addArea({ title: 'Home' })
@@ -15,7 +16,7 @@ Deno.test('areas covers its distinct output branches', async () => {
   equal(pretty.stdout, 'Home\nWork\n')
 })
 
-Deno.test('projects covers status, area, dates, and distinct output branches', async () => {
+test('projects covers status, area, dates, and distinct output branches', async () => {
   using fixture = new ThingsFixture()
   const workId = fixture.addArea({ title: 'Work' })
   const homeId = fixture.addArea({ title: 'Home' })
@@ -81,7 +82,7 @@ Deno.test('projects covers status, area, dates, and distinct output branches', a
   equal(filtered.stdout, '[Work] Launch (scheduled: 2026-08-01 | deadline: 2026-08-02)\n')
 })
 
-Deno.test('todos covers project, deadline, and recent filters', async () => {
+test('todos covers project, deadline, and recent filters', async () => {
   using fixture = new ThingsFixture()
   const work = fixture.addArea({ title: 'Work' })
   const launch = fixture.addTask({ type: 1, title: 'Launch', area: work })
@@ -116,7 +117,7 @@ Deno.test('todos covers project, deadline, and recent filters', async () => {
   equal(result.stdout, '[Work > Launch] Fresh deadline (deadline: 2026-08-01)\n')
 })
 
-Deno.test('logbook covers status, ordering, limits, and JSON shaping', async () => {
+test('logbook covers status, ordering, limits, and JSON shaping', async () => {
   using fixture = new ThingsFixture()
   const work = fixture.addArea({ title: 'Work' })
   fixture.addTask({
@@ -153,7 +154,7 @@ Deno.test('logbook covers status, ordering, limits, and JSON shaping', async () 
   equal(empty.stdout, '[]\n')
 })
 
-Deno.test('empty table and missing link have explicit outcomes', async () => {
+test('empty table and missing link have explicit outcomes', async () => {
   using fixture = new ThingsFixture()
 
   const table = await runTestCli(fixture, ['table'])
@@ -166,7 +167,7 @@ Deno.test('empty table and missing link have explicit outcomes', async () => {
   equal(link.stderr, 'Item not found: missing\n')
 })
 
-Deno.test('add todo covers project placement and remaining URL fields', async () => {
+test('add todo covers project placement and remaining URL fields', async () => {
   using fixture = new ThingsFixture()
 
   const result = await runTestCli(
@@ -211,12 +212,12 @@ Deno.test('add todo covers project placement and remaining URL fields', async ()
     '--project',
     'Launch',
   ])
-  equal(invalid.code, 2)
-  equal(invalid.stderr.includes('--area and --project are mutually exclusive'), true)
+  equal(invalid.code, 1)
+  equal(invalid.stderr.includes("cannot be used with option '--project <project>'"), true)
   deepStrictEqual(invalid.launchedUrls, [])
 })
 
-Deno.test('add project covers the ordinary URL contract', async () => {
+test('add project covers the ordinary URL contract', async () => {
   using fixture = new ThingsFixture()
 
   const result = await runTestCli(
@@ -246,7 +247,7 @@ Deno.test('add project covers the ordinary URL contract', async () => {
   })
 })
 
-Deno.test('add omits an empty deadline', async () => {
+test('add omits an empty deadline', async () => {
   using fixture = new ThingsFixture()
 
   const cases = [
@@ -265,7 +266,7 @@ Deno.test('add omits an empty deadline', async () => {
   }
 })
 
-Deno.test('update covers the remaining URL fields and token failure', async () => {
+test('update covers the remaining URL fields and token failure', async () => {
   using fixture = new ThingsFixture()
   const todo = fixture.addTask({ title: 'Task' })
 
