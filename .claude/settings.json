@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path' | xargs deno fmt",
+            "command": "jq -r '.tool_input.file_path' | xargs deno run --allow-all npm:oxfmt@0.74.0",
             "timeout": 10
           }
         ]

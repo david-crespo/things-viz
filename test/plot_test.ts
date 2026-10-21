@@ -1,4 +1,5 @@
 import { deepStrictEqual, equal } from 'node:assert/strict'
+import { test } from 'node:test'
 
 import {
   movingAverage,
@@ -11,7 +12,7 @@ import plotTemplate from '../plot.html' with { type: 'text' }
 import { getCounts } from '../data.ts'
 import { ThingsFixture } from './fixture.ts'
 
-Deno.test('serializeInlineJson cannot terminate its script element', () => {
+test('serializeInlineJson cannot terminate its script element', () => {
   const value = [{ area: '</ScRiPt><script>globalThis.injected=true</script>' }]
   const serialized = serializeInlineJson(value)
 
@@ -19,7 +20,7 @@ Deno.test('serializeInlineJson cannot terminate its script element', () => {
   deepStrictEqual(JSON.parse(serialized), value)
 })
 
-Deno.test('movingAverage dates each full window at its trailing edge', () => {
+test('movingAverage dates each full window at its trailing edge', () => {
   const data = Array.from({ length: 31 }, (_, index) => ({
     date: Temporal.PlainDate.from('2026-01-01').add({ days: index }).toString(),
     count: index + 1,
@@ -35,7 +36,7 @@ Deno.test('movingAverage dates each full window at its trailing edge', () => {
   ])
 })
 
-Deno.test('plotSeries drops a trailing zero-completion day from the average', () => {
+test('plotSeries drops a trailing zero-completion day from the average', () => {
   const counts = Array.from({ length: 31 }, (_, index) => ({
     date: Temporal.PlainDate.from('2026-01-01').add({ days: index }).toString(),
     total: 1,
@@ -57,7 +58,7 @@ Deno.test('plotSeries drops a trailing zero-completion day from the average', ()
   ])
 })
 
-Deno.test('getCounts ends open items today so plotSeries trims today', async () => {
+test('getCounts ends open items today so plotSeries trims today', async () => {
   const startOfToday = Temporal.Now.zonedDateTimeISO().startOfDay()
   const today = startOfToday.toPlainDate().toString()
   const yesterday = startOfToday.subtract({ days: 1 })
@@ -108,14 +109,14 @@ Deno.test('getCounts ends open items today so plotSeries trims today', async () 
   }
 })
 
-Deno.test('renderPlotHtml inlines the data into a full page', () => {
+test('renderPlotHtml inlines the data into a full page', () => {
   const html = renderPlotHtml(plotTemplate, [{ area: 'Work' }])
 
   equal(html.includes('</html>'), true)
   equal(html.includes('"Work"'), true)
 })
 
-Deno.test('reconcileAreaSelection preserves all-vs-subset intent across domains', () => {
+test('reconcileAreaSelection preserves all-vs-subset intent across domains', () => {
   const expandedDomain = ['area:Archived', 'area:Current']
 
   deepStrictEqual(reconcileAreaSelection({ mode: 'all' }, ['area:Current']), {

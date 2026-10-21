@@ -1,4 +1,5 @@
 import { deepStrictEqual, equal } from 'node:assert/strict'
+import { test } from 'node:test'
 import { z } from 'zod'
 
 import { runTestCli } from './cli.ts'
@@ -16,7 +17,7 @@ const todoJsonSchema = z.object({
   checklist: z.array(z.object({ title: z.string() })).nullable(),
 })
 
-Deno.test('todos --all --format json runs through the CLI against a fixture', async () => {
+test('todos --all --format json runs through the CLI against a fixture', async () => {
   using fixture = new ThingsFixture()
 
   const area = fixture.addArea({ title: 'Work' })
@@ -60,7 +61,7 @@ Deno.test('todos --all --format json runs through the CLI against a fixture', as
   })
 })
 
-Deno.test('item --format json preserves evening state from todos', async () => {
+test('item --format json preserves evening state from todos', async () => {
   using fixture = new ThingsFixture()
 
   const evening = fixture.addTask({ title: 'Evening task', startBucket: 1 })
@@ -84,7 +85,7 @@ Deno.test('item --format json preserves evening state from todos', async () => {
   }
 })
 
-Deno.test('item captures exact area and project output', async () => {
+test('item captures exact area and project output', async () => {
   using fixture = new ThingsFixture()
 
   const area = fixture.addArea({ title: 'Work' })
@@ -99,7 +100,7 @@ Deno.test('item captures exact area and project output', async () => {
   }
 })
 
-Deno.test('item shows project notes in pretty and json output', async () => {
+test('item shows project notes in pretty and json output', async () => {
   using fixture = new ThingsFixture()
 
   const areaId = fixture.addArea({ title: 'Work' })
@@ -135,7 +136,7 @@ Deno.test('item shows project notes in pretty and json output', async () => {
   })
 })
 
-Deno.test('todos captures exact TSV output', async () => {
+test('todos captures exact TSV output', async () => {
   using fixture = new ThingsFixture()
 
   const area = fixture.addArea({ title: 'Work' })
@@ -159,7 +160,7 @@ Deno.test('todos captures exact TSV output', async () => {
   )
 })
 
-Deno.test('todos captures exact pretty output', async () => {
+test('todos captures exact pretty output', async () => {
   using fixture = new ThingsFixture()
 
   const area = fixture.addArea({ title: 'Work' })
@@ -183,7 +184,7 @@ Deno.test('todos captures exact pretty output', async () => {
   )
 })
 
-Deno.test('pretty todos and TSV projects print created dates in local time', async () => {
+test('pretty todos and TSV projects print created dates in local time', async () => {
   using fixture = new ThingsFixture()
 
   // 19:30 and 20:00 on the previous day in Chicago
@@ -214,7 +215,7 @@ Deno.test('pretty todos and TSV projects print created dates in local time', asy
   )
 })
 
-Deno.test('areas captures exact TSV output', async () => {
+test('areas captures exact TSV output', async () => {
   using fixture = new ThingsFixture()
 
   fixture.addArea({ title: 'Work' })
@@ -225,7 +226,7 @@ Deno.test('areas captures exact TSV output', async () => {
   equal(result.stdout, 'area\nHome Admin\nWork\n')
 })
 
-Deno.test('projects captures exact short output', async () => {
+test('projects captures exact short output', async () => {
   using fixture = new ThingsFixture()
 
   const area = fixture.addArea({ title: 'Work' })
@@ -236,7 +237,7 @@ Deno.test('projects captures exact short output', async () => {
   equal(result.stdout, '[Work] Launch\n')
 })
 
-Deno.test('CLI reports validation and domain failures on stderr', async () => {
+test('CLI reports validation and domain failures on stderr', async () => {
   using fixture = new ThingsFixture()
 
   const invalidFormat = await runTestCli(fixture, ['todos', '--format', 'xml'])
@@ -254,7 +255,7 @@ Deno.test('CLI reports validation and domain failures on stderr', async () => {
   equal(missingItem.stderr, 'Item not found: missing\n')
 })
 
-Deno.test('CLI prints help and reports parser failures', async () => {
+test('CLI prints help and reports parser failures', async () => {
   using fixture = new ThingsFixture()
 
   const help = await runTestCli(fixture, ['--help'])
@@ -284,7 +285,7 @@ Deno.test('CLI prints help and reports parser failures', async () => {
   equal(unknown.stderr.includes("error: unknown command 'unknown'"), true)
 })
 
-Deno.test('todos applies representative CLI filters', async () => {
+test('todos applies representative CLI filters', async () => {
   using fixture = new ThingsFixture()
 
   const work = fixture.addArea({ title: 'Work' })
@@ -312,7 +313,7 @@ Deno.test('todos applies representative CLI filters', async () => {
   equal(completed.stdout.includes('Ship report'), false)
 })
 
-Deno.test('views and logbook run through CLI actions', async () => {
+test('views and logbook run through CLI actions', async () => {
   using fixture = new ThingsFixture()
 
   const work = fixture.addArea({ title: 'Work' })
@@ -331,7 +332,7 @@ Deno.test('views and logbook run through CLI actions', async () => {
   equal(logbook.stdout.startsWith('[Work] Completed task (done:'), true)
 })
 
-Deno.test('link and add commands return terminal output and URL effects', async () => {
+test('link and add commands return terminal output and URL effects', async () => {
   using fixture = new ThingsFixture()
 
   const todo = fixture.addTask({ title: 'Task' })
@@ -373,7 +374,7 @@ Deno.test('link and add commands return terminal output and URL effects', async 
   ])
 })
 
-Deno.test('update dispatches to the URL command for the item type', async () => {
+test('update dispatches to the URL command for the item type', async () => {
   using fixture = new ThingsFixture()
 
   const todo = fixture.addTask({ title: 'Task' })
@@ -397,7 +398,7 @@ Deno.test('update dispatches to the URL command for the item type', async () => 
   }
 })
 
-Deno.test('update separates prepended and appended notes only from existing notes', async () => {
+test('update separates prepended and appended notes only from existing notes', async () => {
   using fixture = new ThingsFixture()
 
   const todoId = fixture.addTask({ title: 'Task', notes: 'Existing' })
@@ -414,7 +415,7 @@ Deno.test('update separates prepended and appended notes only from existing note
   equal(params.get('append-notes'), '\nAfter')
 })
 
-Deno.test('update separates prepended from appended notes when notes are empty', async () => {
+test('update separates prepended from appended notes when notes are empty', async () => {
   using fixture = new ThingsFixture()
 
   const todoId = fixture.addTask({ title: 'Task' })
@@ -437,7 +438,7 @@ Deno.test('update separates prepended from appended notes when notes are empty',
   }
 })
 
-Deno.test('update distinguishes empty fields from omitted fields', async () => {
+test('update distinguishes empty fields from omitted fields', async () => {
   using fixture = new ThingsFixture()
 
   const todo = fixture.addTask({ title: 'Task' })
@@ -462,7 +463,7 @@ Deno.test('update distinguishes empty fields from omitted fields', async () => {
   }
 })
 
-Deno.test('delete runs the AppleScript for the item type and refuses areas', async () => {
+test('delete runs the AppleScript for the item type and refuses areas', async () => {
   using fixture = new ThingsFixture()
 
   const todo = fixture.addTask({ title: 'Task' })
@@ -496,7 +497,7 @@ Deno.test('delete runs the AppleScript for the item type and refuses areas', asy
   }
 })
 
-Deno.test('item shows headings, and update and delete refuse them', async () => {
+test('item shows headings, and update and delete refuse them', async () => {
   using fixture = new ThingsFixture()
 
   const project = fixture.addTask({ type: 1, title: 'Launch' })
@@ -518,7 +519,7 @@ Deno.test('item shows headings, and update and delete refuse them', async () => 
   deepStrictEqual(deleted.osascripts, [])
 })
 
-Deno.test('update refuses unknown items, areas, and headings', async () => {
+test('update refuses unknown items, areas, and headings', async () => {
   using fixture = new ThingsFixture()
 
   const area = fixture.addArea({ title: 'Work' })
@@ -539,7 +540,7 @@ Deno.test('update refuses unknown items, areas, and headings', async () => {
   }
 })
 
-Deno.test('table distinguishes reserved area names from synthetic columns', async () => {
+test('table distinguishes reserved area names from synthetic columns', async () => {
   using fixture = new ThingsFixture()
 
   const totalArea = fixture.addArea({ title: 'Total' })

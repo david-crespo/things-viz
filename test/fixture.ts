@@ -1,3 +1,4 @@
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 
 const TEMP_ROOT = `${import.meta.dirname}/.tmp`
@@ -98,8 +99,8 @@ export class ThingsFixture implements Disposable {
   #nextChecklistItem = 0
 
   constructor() {
-    Deno.mkdirSync(TEMP_ROOT, { recursive: true })
-    this.#directory = Deno.makeTempDirSync({ dir: TEMP_ROOT, prefix: 'fixture-' })
+    mkdirSync(TEMP_ROOT, { recursive: true })
+    this.#directory = mkdtempSync(`${TEMP_ROOT}/fixture-`)
     this.path = `${this.#directory}/main.sqlite`
     this.db = new DatabaseSync(this.path)
     this.db.exec(SCHEMA)
@@ -176,7 +177,7 @@ export class ThingsFixture implements Disposable {
 
   [Symbol.dispose]() {
     this.db.close()
-    Deno.removeSync(this.#directory, { recursive: true })
+    rmSync(this.#directory, { recursive: true })
   }
 }
 

@@ -1,4 +1,6 @@
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
+import process from 'node:process'
 
 import type { ThingsFixture } from './fixture.ts'
 
@@ -33,20 +35,20 @@ export async function runTestCli(
   const binDir = `${fixtureDir}/bin`
   const openLog = `${fixtureDir}/open.log`
   const osascriptLog = `${fixtureDir}/osascript.log`
-  const timeZone = options.timeZone ?? Deno.env.get('TZ')
-  Deno.mkdirSync(binDir, { recursive: true })
-  Deno.writeTextFileSync(
-    `${binDir}/open`,
-    `#!/bin/sh\nprintf '%s\\n' "$1" >> '${openLog}'\n`,
-    { mode: 0o755 },
-  )
+  const timeZone = options.timeZone ?? process.env.TZ
+  mkdirSync(binDir, { recursive: true })
+  writeFileSync(`${binDir}/open`, `#!/bin/sh\nprintf '%s\\n' "$1" >> '${openLog}'\n`, {
+    mode: 0o755,
+  })
   // Records the script passed via `-e`.
-  Deno.writeTextFileSync(
+  writeFileSync(
     `${binDir}/osascript`,
     `#!/bin/sh\nprintf '%s\\n' "$2" >> '${osascriptLog}'\n`,
     { mode: 0o755 },
   )
 
+  // Stays on Deno.Command until the switch to Node: Deno's node:child_process reads
+  // NODE_V8_COVERAGE, which the test permissions don't allow.
   const child = new Deno.Command('deno', {
     // Safety boundary; see the doc comment above before adding a permission.
     args: [
@@ -61,8 +63,8 @@ export async function runTestCli(
     clearEnv: true,
     env: {
       NO_COLOR: '1',
-      PATH: `${binDir}:${Deno.env.get('PATH')}`,
-      HOME: Deno.env.get('HOME') ?? '',
+      PATH: `${binDir}:${process.env.PATH}`,
+      HOME: process.env.HOME ?? '',
       ...(timeZone ? { TZ: timeZone } : {}),
       THINGSDB: fixture.path,
       // An empty value (rather than unset) keeps the repo's real .env from supplying a
@@ -96,11 +98,11 @@ export async function runTestCli(
 
 function readLog(path: string): string[] {
   try {
-    const lines = Deno.readTextFileSync(path).trimEnd().split('\n')
-    Deno.removeSync(path)
+    const lines = readFileSync(path, 'utf8').trimEnd().split('\n')
+    rmSync(path)
     return lines
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     return []
   }
 }
