@@ -11,8 +11,8 @@
     "zod": "npm:zod@^4.1.12",
     "dayjs": "npm:dayjs@^1.11.18",
     "memoize": "npm:memoize@^10.1.0",
-    "@cliffy/command": "jsr:@cliffy/command@1.0.0-rc.8",
-    "@cliffy/table": "jsr:@cliffy/table@1.0.0-rc.8",
+    "commander": "npm:commander@^15.0.0",
+    "@commander-js/extra-typings": "npm:@commander-js/extra-typings@^15.0.0",
     "ts-pattern": "npm:ts-pattern@^5.9.0",
   },
 }

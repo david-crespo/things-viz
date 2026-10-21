@@ -239,11 +239,14 @@ Deno.test('projects captures exact short output', async () => {
 Deno.test('CLI reports validation and domain failures on stderr', async () => {
   using fixture = new ThingsFixture()
 
-  // Cliffy prints usage to stdout and the error itself to stderr
   const invalidFormat = await runTestCli(fixture, ['todos', '--format', 'xml'])
-  equal(invalidFormat.code, 2)
-  equal(invalidFormat.stdout.includes('Usage:'), true)
-  equal(invalidFormat.stderr.includes("Invalid format argument 'xml'"), true)
+  equal(invalidFormat.code, 1)
+  equal(invalidFormat.stdout, '')
+  equal(invalidFormat.stderr.includes("argument 'xml' is invalid"), true)
+
+  const invalidLimit = await runTestCli(fixture, ['logbook', '--limit', 'ten'])
+  equal(invalidLimit.code, 1)
+  equal(invalidLimit.stderr.includes('Not an integer.'), true)
 
   const missingItem = await runTestCli(fixture, ['item', 'missing'])
   equal(missingItem.code, 1)
@@ -268,11 +271,17 @@ Deno.test('CLI prints help and reports parser failures', async () => {
   equal(todosHelp.stdout.includes('tviz'), true)
   equal(todosHelp.stdout.includes('todos'), true)
 
-  for (const args of [[], ['unknown']]) {
+  // Without a subcommand, Commander prints help to stderr
+  for (const args of [[], ['add']]) {
     const result = await runTestCli(fixture, args)
-    equal(result.code, 2)
-    equal(result.stderr.includes('error'), true)
+    equal(result.code, 1)
+    equal(result.stdout, '')
+    equal(result.stderr.includes('Usage:'), true)
   }
+
+  const unknown = await runTestCli(fixture, ['unknown'])
+  equal(unknown.code, 1)
+  equal(unknown.stderr.includes("error: unknown command 'unknown'"), true)
 })
 
 Deno.test('todos applies representative CLI filters', async () => {

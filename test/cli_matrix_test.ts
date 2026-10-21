@@ -211,8 +211,8 @@ Deno.test('add todo covers project placement and remaining URL fields', async ()
     '--project',
     'Launch',
   ])
-  equal(invalid.code, 2)
-  equal(invalid.stderr.includes('--area and --project are mutually exclusive'), true)
+  equal(invalid.code, 1)
+  equal(invalid.stderr.includes("cannot be used with option '--project <project>'"), true)
   deepStrictEqual(invalid.launchedUrls, [])
 })
 
