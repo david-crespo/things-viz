@@ -403,16 +403,10 @@ function resolveAreas(items: Row[], things: Things): Row[] {
 
 // Public API
 
-type DatabaseOptions = { dbPath?: string; timeZone?: string }
+type DatabaseOptions = { dbPath: string; timeZone?: string }
 
-async function openThings(dbPath?: string) {
-  return new Things(dbPath ?? (await findDatabasePath()))
-}
-
-export async function getAllItems(
-  opts: { incompleteOnly?: boolean; dbPath?: string } = {},
-) {
-  using things = await openThings(opts.dbPath)
+export function getAllItems(opts: { incompleteOnly?: boolean; dbPath: string }) {
+  using things = new Things(opts.dbPath)
   let items = things.todos({ status: 'incomplete' })
   if (!opts.incompleteOnly) {
     items = [
@@ -427,18 +421,15 @@ export async function getAllItems(
   return parsed.map(parseTodo)
 }
 
-export async function getItemByUuid(uuid: string, opts: DatabaseOptions = {}) {
-  using things = await openThings(opts.dbPath)
+export function getItemByUuid(uuid: string, opts: DatabaseOptions) {
+  using things = new Things(opts.dbPath)
   const result = things.get(uuid)
   if (!result) return null
   return anyItemSchema.parse(result)
 }
 
-export async function getTodoByUuid(
-  uuid: string,
-  opts: DatabaseOptions = {},
-): Promise<Todo | null> {
-  using things = await openThings(opts.dbPath)
+export function getTodoByUuid(uuid: string, opts: DatabaseOptions): Todo | null {
+  using things = new Things(opts.dbPath)
   const result = things.get(uuid)
   if (!result || result.type !== 'to-do') return null
   things.attachChecklistItems([result])
@@ -447,8 +438,8 @@ export async function getTodoByUuid(
   return parseTodo(parsed)
 }
 
-export async function getAreas(opts: DatabaseOptions = {}) {
-  using things = await openThings(opts.dbPath)
+export function getAreas(opts: DatabaseOptions) {
+  using things = new Things(opts.dbPath)
   const areas = z.array(areaSchema).parse(things.areas())
   return areas.map((a) => a.title).sort()
 }
@@ -467,13 +458,13 @@ function parseProject(p: z.infer<typeof projectSchema>) {
   }
 }
 
-export async function getProjects(opts: DatabaseOptions = {}) {
-  using things = await openThings(opts.dbPath)
+export function getProjects(opts: DatabaseOptions) {
+  using things = new Things(opts.dbPath)
   return z.array(projectSchema).parse(things.projects()).map(parseProject)
 }
 
-export async function getProjectByUuid(uuid: string, opts: DatabaseOptions = {}) {
-  using things = await openThings(opts.dbPath)
+export function getProjectByUuid(uuid: string, opts: DatabaseOptions) {
+  using things = new Things(opts.dbPath)
   const result = things.get(uuid)
   if (!result || result.type !== 'project') return null
   return parseProject(projectSchema.parse(result))
@@ -484,8 +475,8 @@ export type Todo = Awaited<ReturnType<typeof getAllItems>>[number]
 export type Project = Awaited<ReturnType<typeof getProjects>>[number]
 export type Item = NonNullable<Awaited<ReturnType<typeof getItemByUuid>>>
 
-export async function getViewItems(view: ViewName, opts: DatabaseOptions = {}) {
-  using things = await openThings(opts.dbPath)
+export function getViewItems(view: ViewName, opts: DatabaseOptions) {
+  using things = new Things(opts.dbPath)
   const items = things[view]()
   things.attachChecklistItems(items)
   const resolved = resolveAreas(items, things)
@@ -532,8 +523,8 @@ export function countsToPlotData(counts: CountRow[]): CountPlotDatum[] {
   ])
 }
 
-export async function getCounts(opts: DatabaseOptions = {}) {
-  const todos = await getAllItems(opts)
+export function getCounts(opts: DatabaseOptions) {
+  const todos = getAllItems(opts)
   const timeZone = opts.timeZone ?? Temporal.Now.timeZoneId()
   const dateToStr = (date: Date) =>
     Temporal.Instant.fromEpochMilliseconds(date.getTime())

@@ -1,6 +1,7 @@
 #!/usr/bin/env deno run --allow-net=0.0.0.0:8000 --allow-env=THINGSDB,HOME,THINGS_TOKEN --allow-read --allow-run=open,osascript
 
 import { z } from 'zod'
+import memoize from 'memoize'
 import { match } from 'ts-pattern'
 import { Command, ValidationError } from '@cliffy/command'
 import { Table } from '@cliffy/table'
@@ -9,6 +10,7 @@ import { load as loadEnv } from '@std/dotenv'
 
 import {
   type CountRow,
+  findDatabasePath,
   getAllItems,
   getAreas,
   getCounts,
@@ -24,6 +26,9 @@ import {
 } from './data.ts'
 import { plotSeries, renderPlotHtml } from './plot.ts'
 import plotTemplate from './plot.html' with { type: 'text' }
+
+// Found on first use, so commands that never read the database work without one
+const dbPath = memoize(findDatabasePath)
 
 if (!import.meta.main) Deno.exit()
 
@@ -121,7 +126,9 @@ function viewCommand(view: ViewName, description: string) {
   return new Command()
     .description(description)
     .option(formatOption.flags, formatOption.desc, formatOption.opts)
-    .action(async ({ format }) => renderTodos(await getViewItems(view), format))
+    .action(async ({ format }) =>
+      renderTodos(getViewItems(view, { dbPath: await dbPath() }), format),
+    )
 }
 
 function renderCountsTable(counts: CountRow[]) {
@@ -341,7 +348,7 @@ await new Command()
   .command('table')
   .description('print table of the last 30 days')
   .action(async () => {
-    renderCountsTable((await getCounts()).slice(-30))
+    renderCountsTable(getCounts({ dbPath: await dbPath() }).slice(-30))
   })
   .reset()
   .command('plot')
@@ -351,7 +358,7 @@ await new Command()
     const url = `http://${serveOptions.hostname}:${serveOptions.port}`
 
     async function handler() {
-      const counts = await getCounts()
+      const counts = getCounts({ dbPath: await dbPath() })
       const html = renderPlotHtml(plotTemplate, plotSeries(counts))
       return new Response(html, { headers: { 'content-type': 'text/html' } })
     }
@@ -376,7 +383,7 @@ await new Command()
   .option('-n, --limit <limit:integer>', 'max items to show', { default: 50 })
   .option(formatOption.flags, formatOption.desc, formatOption.opts)
   .action(async ({ area, limit, format }) => {
-    let todos = (await getAllItems()).filter(
+    let todos = getAllItems({ dbPath: await dbPath() }).filter(
       (todo) => todo.status === 'completed' || todo.status === 'canceled',
     )
     if (area) {
@@ -401,7 +408,7 @@ await new Command()
   .option(formatOption.flags, formatOption.desc, formatOption.opts)
   .action(async (options) => {
     const incompleteOnly = !options.completed && !options.all
-    let todos = await getAllItems({ incompleteOnly })
+    let todos = getAllItems({ incompleteOnly, dbPath: await dbPath() })
     if (options.completed) {
       todos = todos.filter((todo) => todo.status === 'completed')
     }
@@ -443,7 +450,7 @@ await new Command()
     default: 'pretty',
   })
   .action(async ({ format }) => {
-    const areas = await getAreas()
+    const areas = getAreas({ dbPath: await dbPath() })
     match(format)
       .with('json', () => console.log(JSON.stringify(areas, null, 2)))
       .with('tsv', () =>
@@ -466,7 +473,7 @@ await new Command()
     default: 'pretty',
   })
   .action(async ({ area, completed, all, format }) => {
-    let projects = await getProjects()
+    let projects = getProjects({ dbPath: await dbPath() })
     if (completed) {
       projects = projects.filter((p) => p.status === 'completed')
     } else if (!all) {
@@ -540,7 +547,7 @@ await new Command()
       .description('output OSC 8 hyperlink for a Things item')
       .arguments('<uuid:string>')
       .action(async (_options, uuid: string) => {
-        const item = await getItemByUuid(uuid)
+        const item = getItemByUuid(uuid, { dbPath: await dbPath() })
         if (!item) {
           console.error(`Item not found: ${uuid}`)
           Deno.exit(1)
@@ -556,17 +563,17 @@ await new Command()
       .arguments('<uuid:string>')
       .option(formatOption.flags, formatOption.desc, formatOption.opts)
       .action(async ({ format }, uuid: string) => {
-        const item = await getItemByUuid(uuid)
+        const item = getItemByUuid(uuid, { dbPath: await dbPath() })
         if (!item) {
           console.error(`Item not found: ${uuid}`)
           Deno.exit(1)
         }
         await match(item)
           .with({ type: 'to-do' }, async () => {
-            renderTodos([(await getTodoByUuid(uuid))!], format)
+            renderTodos([getTodoByUuid(uuid, { dbPath: await dbPath() })!], format)
           })
           .with({ type: 'project' }, async () => {
-            renderProject((await getProjectByUuid(uuid))!, format)
+            renderProject(getProjectByUuid(uuid, { dbPath: await dbPath() })!, format)
           })
           .with({ type: 'area' }, ({ title }) => console.log(`[Area] ${title}`))
           .with({ type: 'heading' }, ({ title, project_title }) => {
@@ -671,7 +678,7 @@ await new Command()
       .description('move an item to the Things trash')
       .arguments('<uuid:string>')
       .action(async (_options, uuid: string) => {
-        const item = await getItemByUuid(uuid)
+        const item = getItemByUuid(uuid, { dbPath: await dbPath() })
         if (!item) {
           console.error(`Item not found: ${uuid}`)
           Deno.exit(1)
@@ -754,7 +761,7 @@ await new Command()
           uuid: string,
         ) => {
           const token = requireToken()
-          const item = await getItemByUuid(uuid)
+          const item = getItemByUuid(uuid, { dbPath: await dbPath() })
           if (!item) {
             console.error(`Item not found: ${uuid}`)
             Deno.exit(1)
