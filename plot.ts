@@ -11,9 +11,7 @@ export function serializeInlineJson(value: unknown): string {
 
 export type DatedCount = { date: string; count: number }
 
-export type AreaSelection =
-  | { mode: 'all' }
-  | { mode: 'subset'; areas: Set<string> }
+export type AreaSelection = { mode: 'all' } | { mode: 'subset'; areas: Set<string> }
 
 export function reconcileAreaSelection(
   selection: AreaSelection,

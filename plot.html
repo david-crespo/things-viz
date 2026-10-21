@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta charset="UTF-8" />
@@ -63,7 +63,7 @@
       import * as Plot from 'https://esm.sh/@observablehq/plot@0.6'
 
       const rawData = /*__DATA__*/ []
-      const reconcileAreaSelection = /*__RECONCILE_SELECTION__*/ (() => {})
+      const reconcileAreaSelection = /*__RECONCILE_SELECTION__*/ () => {}
 
       const dateToStr = (d) => d.toISOString().slice(0, 10)
 
@@ -110,10 +110,7 @@
       function updateUrlAreas() {
         const params = new URLSearchParams(window.location.search)
         params.delete('area')
-        if (
-          areaSelection.mode === 'subset' &&
-          areaSelection.areas.size < allAreas.length
-        ) {
+        if (areaSelection.mode === 'subset' && areaSelection.areas.size < allAreas.length) {
           for (const area of areaSelection.areas) {
             params.append('area', area)
           }
@@ -142,9 +139,8 @@
           areaSelectionInitialized = true
         }
         areaSelection = reconcileAreaSelection(areaSelection, domain)
-        const selectedAreas = areaSelection.mode === 'all'
-          ? new Set(domain)
-          : areaSelection.areas
+        const selectedAreas =
+          areaSelection.mode === 'all' ? new Set(domain) : areaSelection.areas
 
         legendDiv.innerHTML = ''
         domain.forEach((area, i) => {
@@ -165,9 +161,10 @@
               } else {
                 selectedAreas.add(area)
               }
-              areaSelection = selectedAreas.size === 0 || selectedAreas.size === domain.length
-                ? { mode: 'all' }
-                : { mode: 'subset', areas: selectedAreas }
+              areaSelection =
+                selectedAreas.size === 0 || selectedAreas.size === domain.length
+                  ? { mode: 'all' }
+                  : { mode: 'subset', areas: selectedAreas }
             } else {
               // Click: solo this area (or show all if already solo)
               if (selectedAreas.size === 1 && selectedAreas.has(area)) {
@@ -202,19 +199,14 @@
         const colorScale = fullBreakdownPlot.scale('color')
         buildLegend(colorScale, areaLabels)
 
-        const selectedAreas = areaSelection.mode === 'all'
-          ? new Set(allAreas)
-          : areaSelection.areas
+        const selectedAreas =
+          areaSelection.mode === 'all' ? new Set(allAreas) : areaSelection.areas
         const filteredBreakdownData = breakdownData.filter(({ area }) =>
-          selectedAreas.has(area)
+          selectedAreas.has(area),
         )
 
         // Pass fixed color scale so colors don't shift when filtering
-        const breakdownPlot = getPlot(
-          'Items by Area',
-          filteredBreakdownData,
-          colorScale,
-        )
+        const breakdownPlot = getPlot('Items by Area', filteredBreakdownData, colorScale)
 
         const totalPlot = getPlot(
           'Total',

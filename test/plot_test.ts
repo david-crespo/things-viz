@@ -46,13 +46,15 @@ Deno.test('plotSeries drops a trailing zero-completion day from the average', ()
 
   const averages = plotSeries(counts).filter(({ kind }) => kind === 'completion-average')
 
-  deepStrictEqual(averages, [{
-    date: '2026-01-30',
-    count: 1,
-    kind: 'completion-average',
-    area: 'completions',
-    label: 'Completions',
-  }])
+  deepStrictEqual(averages, [
+    {
+      date: '2026-01-30',
+      count: 1,
+      kind: 'completion-average',
+      area: 'completions',
+      label: 'Completions',
+    },
+  ])
 })
 
 Deno.test('getCounts ends open items today so plotSeries trims today', async () => {
@@ -116,10 +118,9 @@ Deno.test('renderPlotHtml inlines the data into a full page', () => {
 Deno.test('reconcileAreaSelection preserves all-vs-subset intent across domains', () => {
   const expandedDomain = ['area:Archived', 'area:Current']
 
-  deepStrictEqual(
-    reconcileAreaSelection({ mode: 'all' }, ['area:Current']),
-    { mode: 'all' },
-  )
+  deepStrictEqual(reconcileAreaSelection({ mode: 'all' }, ['area:Current']), {
+    mode: 'all',
+  })
   deepStrictEqual(
     reconcileAreaSelection(
       { mode: 'subset', areas: new Set(['area:Current']) },

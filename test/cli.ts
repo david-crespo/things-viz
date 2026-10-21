@@ -67,7 +67,7 @@ export async function runTestCli(
       THINGSDB: fixture.path,
       // An empty value (rather than unset) keeps the repo's real .env from supplying a
       // token via dotenv, which only fills in variables that are not already set.
-      THINGS_TOKEN: options.token === null ? '' : options.token ?? 'test-token',
+      THINGS_TOKEN: options.token === null ? '' : (options.token ?? 'test-token'),
     },
     stdin: options.stdin === undefined ? 'null' : 'piped',
     stdout: 'piped',

@@ -40,10 +40,13 @@ Deno.test('todos --all --format json runs through the CLI against a fixture', as
 
   equal(result.code, 0)
   equal(result.stdout.endsWith('\n'), true)
-  deepStrictEqual(output.map(({ title, status }) => ({ title, status })), [
-    { title: 'Write summary', status: 'incomplete' },
-    { title: 'Already shipped', status: 'completed' },
-  ])
+  deepStrictEqual(
+    output.map(({ title, status }) => ({ title, status })),
+    [
+      { title: 'Write summary', status: 'incomplete' },
+      { title: 'Already shipped', status: 'completed' },
+    ],
+  )
   deepStrictEqual(output[0], {
     uuid: todo,
     title: 'Write summary',
@@ -68,7 +71,10 @@ Deno.test('item --format json preserves evening state from todos', async () => {
   const todos = stateSchema.parse(JSON.parse(todosResult.stdout))
   const listedStates = new Map(todos.map((todo) => [todo.uuid, todo.evening]))
 
-  for (const [uuid, expected] of [[evening, true], [daytime, false]] as const) {
+  for (const [uuid, expected] of [
+    [evening, true],
+    [daytime, false],
+  ] as const) {
     equal(listedStates.get(uuid), expected)
 
     const itemResult = await runTestCli(fixture, ['item', uuid, '--format', 'json'])
@@ -84,12 +90,10 @@ Deno.test('item captures exact area and project output', async () => {
   const area = fixture.addArea({ title: 'Work' })
   const project = fixture.addTask({ type: 1, title: 'Launch', area })
 
-  for (
-    const [uuid, expected] of [
-      [area, '[Area] Work\n'],
-      [project, '[Project] Launch\n'],
-    ] as const
-  ) {
+  for (const [uuid, expected] of [
+    [area, '[Area] Work\n'],
+    [project, '[Project] Launch\n'],
+  ] as const) {
     const result = await runTestCli(fixture, ['item', uuid])
     equal(result.stdout, expected)
   }
@@ -333,10 +337,12 @@ Deno.test('link and add commands return terminal output and URL effects', async 
     ['add', 'todo', 'New task', '--area', 'Work', '--checklist', 'First'],
     { stdin: 'Notes' },
   )
-  deepStrictEqual(
-    Object.fromEntries(new URL(addTodo.launchedUrls[0]).searchParams),
-    { title: 'New task', list: 'Work', notes: 'Notes', 'checklist-items': 'First' },
-  )
+  deepStrictEqual(Object.fromEntries(new URL(addTodo.launchedUrls[0]).searchParams), {
+    title: 'New task',
+    list: 'Work',
+    notes: 'Notes',
+    'checklist-items': 'First',
+  })
 
   const addProject = await runTestCli(fixture, [
     'add',
@@ -347,13 +353,15 @@ Deno.test('link and add commands return terminal output and URL effects', async 
   ])
   const projectUrl = new URL(addProject.launchedUrls[0])
   equal(projectUrl.pathname, '/json')
-  deepStrictEqual(JSON.parse(projectUrl.searchParams.get('data') ?? ''), [{
-    type: 'project',
-    attributes: {
-      title: 'Launch',
-      items: [{ type: 'heading', attributes: { title: 'Plan' } }],
+  deepStrictEqual(JSON.parse(projectUrl.searchParams.get('data') ?? ''), [
+    {
+      type: 'project',
+      attributes: {
+        title: 'Launch',
+        items: [{ type: 'heading', attributes: { title: 'Plan' } }],
+      },
     },
-  }])
+  ])
 })
 
 Deno.test('update dispatches to the URL command for the item type', async () => {
@@ -362,7 +370,10 @@ Deno.test('update dispatches to the URL command for the item type', async () => 
   const todo = fixture.addTask({ title: 'Task' })
   const project = fixture.addTask({ type: 1, title: 'Project' })
 
-  for (const [uuid, action] of [[todo, 'update'], [project, 'update-project']] as const) {
+  for (const [uuid, action] of [
+    [todo, 'update'],
+    [project, 'update-project'],
+  ] as const) {
     const result = await runTestCli(fixture, ['update', uuid, '--title', 'Renamed'])
     equal(result.launchedUrls.length, 1)
 
@@ -536,16 +547,14 @@ Deno.test('table distinguishes reserved area names from synthetic columns', asyn
   }
 
   const result = await runTestCli(fixture, ['table'])
-  for (
-    const header of [
-      'Total',
-      'Total (area)',
-      'Completions',
-      'Completions (area)',
-      'No area',
-      'No area (area)',
-    ]
-  ) {
+  for (const header of [
+    'Total',
+    'Total (area)',
+    'Completions',
+    'Completions (area)',
+    'No area',
+    'No area (area)',
+  ]) {
     equal(result.stdout.includes(header), true)
   }
 })

@@ -44,17 +44,15 @@ async function readStdin(): Promise<string | undefined> {
   return buf.trimEnd()
 }
 
-async function openThingsUrl(
-  action: string,
-  params: Record<string, string>,
-) {
+async function openThingsUrl(action: string, params: Record<string, string>) {
   const query = Object.entries(params)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join('&')
   const urlStr = `things:///${action}?${query}`
   const displayQuery = Object.entries(params)
-    .map(([k, v]) =>
-      `${encodeURIComponent(k)}=${k === 'auth-token' ? '***' : encodeURIComponent(v)}`
+    .map(
+      ([k, v]) =>
+        `${encodeURIComponent(k)}=${k === 'auth-token' ? '***' : encodeURIComponent(v)}`,
     )
     .join('&')
   console.error(`things:///${action}?${displayQuery}`)
@@ -90,11 +88,12 @@ const OMITTABLE_ADD_OPTIONS = new Set(['--deadline'])
 // A new item has nothing to clear, so for add an empty value just drops the option.
 function handleEmptyOptionValues(args: readonly string[]): string[] {
   const command = args[0]
-  const options = command === 'update'
-    ? CLEARABLE_UPDATE_OPTIONS
-    : command === 'add'
-    ? OMITTABLE_ADD_OPTIONS
-    : new Set<string>()
+  const options =
+    command === 'update'
+      ? CLEARABLE_UPDATE_OPTIONS
+      : command === 'add'
+        ? OMITTABLE_ADD_OPTIONS
+        : new Set<string>()
   const result: string[] = []
   for (let index = 0; index < args.length; index++) {
     const arg = args[index]
@@ -213,22 +212,24 @@ function renderProject(project: Project, format: RenderFormat) {
   const fmtDate = (d: Date | null) => d?.toISOString().slice(0, 10) ?? null
   match(format)
     .with('json', () => {
-      console.log(JSON.stringify(
-        {
-          uuid: project.uuid,
-          type: 'project',
-          title: project.title,
-          status: project.status,
-          area: project.area_title,
-          notes: project.notes,
-          start: project.start,
-          start_date: fmtDate(project.start_date),
-          deadline: fmtDate(project.deadline),
-          created: project.created.toISOString(),
-        },
-        null,
-        2,
-      ))
+      console.log(
+        JSON.stringify(
+          {
+            uuid: project.uuid,
+            type: 'project',
+            title: project.title,
+            status: project.status,
+            area: project.area_title,
+            notes: project.notes,
+            start: project.start,
+            start_date: fmtDate(project.start_date),
+            deadline: fmtDate(project.deadline),
+            created: project.created.toISOString(),
+          },
+          null,
+          2,
+        ),
+      )
     })
     .with('pretty', () => {
       console.log(`[Project] ${project.title}`)
@@ -412,7 +413,7 @@ await new Command()
     }
     if (options.project) {
       todos = todos.filter((todo) =>
-        todo.project_title?.toLowerCase().includes(options.project!.toLowerCase())
+        todo.project_title?.toLowerCase().includes(options.project!.toLowerCase()),
       )
     }
     if (options.search) {
@@ -445,7 +446,12 @@ await new Command()
     const areas = await getAreas()
     match(format)
       .with('json', () => console.log(JSON.stringify(areas, null, 2)))
-      .with('tsv', () => renderTsv(['area'], areas.map((a) => [a])))
+      .with('tsv', () =>
+        renderTsv(
+          ['area'],
+          areas.map((a) => [a]),
+        ),
+      )
       .with('short', 'pretty', () => areas.forEach((a) => console.log(a)))
       .exhaustive()
   })
@@ -467,29 +473,29 @@ await new Command()
       projects = projects.filter((p) => p.status === 'incomplete')
     }
     if (area) {
-      projects = projects.filter(
-        (p) => p.area_title.toLowerCase() === area!.toLowerCase(),
-      )
+      projects = projects.filter((p) => p.area_title.toLowerCase() === area!.toLowerCase())
     }
     projects.sort((a, b) =>
-      `${a.area_title}${a.title}`.localeCompare(`${b.area_title}${b.title}`)
+      `${a.area_title}${a.title}`.localeCompare(`${b.area_title}${b.title}`),
     )
     const fmtDate = (d: Date | null) => d?.toISOString().slice(0, 10) ?? null
     match(format)
       .with('json', () => {
-        console.log(JSON.stringify(
-          projects.map((p) => ({
-            uuid: p.uuid,
-            area: p.area_title,
-            project: p.title,
-            start: p.start,
-            start_date: fmtDate(p.start_date),
-            deadline: fmtDate(p.deadline),
-            created: p.created?.toISOString() || null,
-          })),
-          null,
-          2,
-        ))
+        console.log(
+          JSON.stringify(
+            projects.map((p) => ({
+              uuid: p.uuid,
+              area: p.area_title,
+              project: p.title,
+              start: p.start,
+              start_date: fmtDate(p.start_date),
+              deadline: fmtDate(p.deadline),
+              created: p.created?.toISOString() || null,
+            })),
+            null,
+            2,
+          ),
+        )
       })
       .with('tsv', () => {
         renderTsv(
@@ -711,10 +717,7 @@ await new Command()
       .option('--notes <notes:string>', 'replace notes')
       .option('--prepend-notes <prependNotes:string>', 'prepend to notes')
       .option('--append-notes <appendNotes:string>', 'append to notes')
-      .option(
-        '--when <when:string>',
-        'today, tomorrow, evening, anytime, someday, or date',
-      )
+      .option('--when <when:string>', 'today, tomorrow, evening, anytime, someday, or date')
       .option('--deadline <deadline:string>', 'deadline date')
       .option('--heading <heading:string>', 'move under heading within project')
       .option('--completed', 'mark completed')
@@ -728,11 +731,9 @@ await new Command()
       .option('--append-checklist <item:string>', 'append checklist items (repeatable)', {
         collect: true,
       })
-      .option(
-        '--prepend-checklist <item:string>',
-        'prepend checklist items (repeatable)',
-        { collect: true },
-      )
+      .option('--prepend-checklist <item:string>', 'prepend checklist items (repeatable)', {
+        collect: true,
+      })
       .action(
         async (
           {

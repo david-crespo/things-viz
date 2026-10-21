@@ -25,9 +25,9 @@ export function sqliteAffinity(declaredType: string): string {
 const columnSchema = z.object({ name: z.string(), type: z.string() })
 
 function columnAffinities(db: DatabaseSync, table: string): Map<string, string> {
-  const rows = z.array(columnSchema).parse(
-    db.prepare('SELECT name, type FROM pragma_table_xinfo(?)').all(table),
-  )
+  const rows = z
+    .array(columnSchema)
+    .parse(db.prepare('SELECT name, type FROM pragma_table_xinfo(?)').all(table))
   return new Map(rows.map(({ name, type }) => [name, sqliteAffinity(type)]))
 }
 

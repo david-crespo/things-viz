@@ -1,0 +1,7 @@
+{
+  "printWidth": 92,
+  "semi": false,
+  "singleQuote": true,
+  "proseWrap": "always",
+  "ignorePatterns": ["deno.lock", ".claude"]
+}

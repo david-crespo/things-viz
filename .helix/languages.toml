@@ -7,5 +7,10 @@ shebangs = ["deno", "node"]
 roots = ["deno.json", "deno.jsonc", "package.json", "tsconfig.json"]
 language-servers = ["deno-lsp"]
 indent = { tab-width = 2, unit = "  " }
-formatter = { command = "deno", args = ["fmt", "-"] }
+formatter = { command = "deno", args = [
+  "run",
+  "--allow-all",
+  "npm:oxfmt@0.74.0",
+  "--stdin-filepath=file.ts",
+] }
 auto-format = true

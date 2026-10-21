@@ -34,10 +34,16 @@ Deno.test('getAllItems filters by status and excludes internal rows', async () =
     dbPath: fixture.path,
     incompleteOnly: true,
   })
-  deepStrictEqual(incomplete.map((item) => item.title), ['Incomplete'])
+  deepStrictEqual(
+    incomplete.map((item) => item.title),
+    ['Incomplete'],
+  )
 
   const all = await getAllItems({ dbPath: fixture.path })
-  deepStrictEqual(all.map((item) => item.title), ['Incomplete', 'Completed', 'Canceled'])
+  deepStrictEqual(
+    all.map((item) => item.title),
+    ['Incomplete', 'Completed', 'Canceled'],
+  )
 })
 
 Deno.test('getAllItems resolves heading hierarchy and checklist items', async () => {
@@ -95,19 +101,22 @@ Deno.test('view queries select and order representative tasks', async () => {
   fixture.addTask({ title: 'Completed inbox', status: 3, start: 0 })
 
   const options = { dbPath: fixture.path }
-  deepStrictEqual((await getViewItems('inbox', options)).map((item) => item.title), [
-    'Inbox',
-  ])
-  deepStrictEqual((await getViewItems('today', options)).map((item) => item.title), [
-    'Today first',
-    'Today second',
-  ])
-  deepStrictEqual((await getViewItems('upcoming', options)).map((item) => item.title), [
-    'Upcoming',
-  ])
-  deepStrictEqual((await getViewItems('someday', options)).map((item) => item.title), [
-    'Someday',
-  ])
+  deepStrictEqual(
+    (await getViewItems('inbox', options)).map((item) => item.title),
+    ['Inbox'],
+  )
+  deepStrictEqual(
+    (await getViewItems('today', options)).map((item) => item.title),
+    ['Today first', 'Today second'],
+  )
+  deepStrictEqual(
+    (await getViewItems('upcoming', options)).map((item) => item.title),
+    ['Upcoming'],
+  )
+  deepStrictEqual(
+    (await getViewItems('someday', options)).map((item) => item.title),
+    ['Someday'],
+  )
 })
 
 Deno.test('today includes undated to-dos whose deadline has arrived', async () => {
@@ -272,7 +281,10 @@ Deno.test('item lookup handles to-dos, projects, areas, and missing IDs', async 
   const result = await getTodoByUuid(todo, options)
   equal(result?.project_title, 'Project')
   equal(result?.area_title, 'Work')
-  deepStrictEqual(result?.checklist?.map((item) => item.title), ['Step'])
+  deepStrictEqual(
+    result?.checklist?.map((item) => item.title),
+    ['Step'],
+  )
 })
 
 Deno.test('anytime excludes completed, trashed, and recurring tasks', async () => {
@@ -289,7 +301,10 @@ Deno.test('anytime excludes completed, trashed, and recurring tasks', async () =
   })
 
   const items = await getViewItems('anytime', { dbPath: fixture.path })
-  deepStrictEqual(items.map((item) => item.title), ['Ready'])
+  deepStrictEqual(
+    items.map((item) => item.title),
+    ['Ready'],
+  )
 })
 
 Deno.test('getCounts reconstructs historical area totals and stop events', async () => {
@@ -351,25 +366,22 @@ Deno.test('getCounts buckets timestamps by local calendar day', async () => {
     stopDate: unixSeconds('2026-01-19T06:30:00Z'),
   })
 
-  deepStrictEqual(
-    await getCounts({ dbPath: fixture.path, timeZone: 'America/Chicago' }),
-    [
-      {
-        date: '2026-01-18',
-        total: 1,
-        completions: 1,
-        unassigned: 1,
-        areas: {},
-      },
-      {
-        date: '2026-01-19',
-        total: 1,
-        completions: 1,
-        unassigned: 1,
-        areas: {},
-      },
-    ],
-  )
+  deepStrictEqual(await getCounts({ dbPath: fixture.path, timeZone: 'America/Chicago' }), [
+    {
+      date: '2026-01-18',
+      total: 1,
+      completions: 1,
+      unassigned: 1,
+      areas: {},
+    },
+    {
+      date: '2026-01-19',
+      total: 1,
+      completions: 1,
+      unassigned: 1,
+      areas: {},
+    },
+  ])
 })
 
 Deno.test('getCounts keeps reserved area names separate from synthetic series', async () => {
@@ -396,13 +408,15 @@ Deno.test('getCounts keeps reserved area names separate from synthetic series', 
   }
 
   const counts = await getCounts({ dbPath: fixture.path })
-  deepStrictEqual(counts, [{
-    date: '2026-01-05',
-    total: 4,
-    completions: 4,
-    unassigned: 1,
-    areas: { Total: 1, Completions: 1, [NO_AREA]: 1 },
-  }])
+  deepStrictEqual(counts, [
+    {
+      date: '2026-01-05',
+      total: 4,
+      completions: 4,
+      unassigned: 1,
+      areas: { Total: 1, Completions: 1, [NO_AREA]: 1 },
+    },
+  ])
   deepStrictEqual(
     countsToPlotData(counts).map(({ kind, area, label, count }) => ({
       kind,

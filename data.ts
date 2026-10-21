@@ -74,8 +74,10 @@ export async function findDatabasePath(): Promise<string> {
   if (envPath) return envPath
 
   const pattern =
-    '~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-*/Things Database.thingsdatabase/main.sqlite'
-      .replace('~', Deno.env.get('HOME') || '')
+    '~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-*/Things Database.thingsdatabase/main.sqlite'.replace(
+      '~',
+      Deno.env.get('HOME') || '',
+    )
 
   for await (const entry of expandGlob(pattern)) {
     return entry.path
@@ -254,11 +256,8 @@ class Things {
   }
 
   todos(options: { status?: string } = {}): Row[] {
-    const statusVal = options.status === 'completed'
-      ? 3
-      : options.status === 'canceled'
-      ? 2
-      : 0
+    const statusVal =
+      options.status === 'completed' ? 3 : options.status === 'canceled' ? 2 : 0
 
     return this.db
       .prepare(
@@ -407,7 +406,7 @@ function resolveAreas(items: Row[], things: Things): Row[] {
 type DatabaseOptions = { dbPath?: string; timeZone?: string }
 
 async function openThings(dbPath?: string) {
-  return new Things(dbPath ?? await findDatabasePath())
+  return new Things(dbPath ?? (await findDatabasePath()))
 }
 
 export async function getAllItems(
