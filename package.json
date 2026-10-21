@@ -1,9 +1,6 @@
 {
   "name": "things-viz",
   "private": true,
-  "bin": {
-    "tviz": "./main.ts"
-  },
   "type": "module",
   "scripts": {
     "ci": "npm run fmt:check && npm run lint && npm run check && npm test",
