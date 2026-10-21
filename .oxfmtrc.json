@@ -3,5 +3,5 @@
   "semi": false,
   "singleQuote": true,
   "proseWrap": "always",
-  "ignorePatterns": ["deno.lock", ".claude"]
+  "ignorePatterns": [".claude"]
 }

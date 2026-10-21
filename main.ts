@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import process from 'node:process'
 import { text } from 'node:stream/consumers'
-import { parseEnv, styleText } from 'node:util'
+import { styleText } from 'node:util'
 import memoize from 'memoize'
 import { match } from 'ts-pattern'
 import { Command, InvalidArgumentError, Option } from '@commander-js/extra-typings'
@@ -33,19 +33,12 @@ const dbPath = memoize(findDatabasePath)
 
 if (!import.meta.main) process.exit()
 
-loadDotEnv(`${import.meta.dirname}/.env`)
-
-// Fill in variables from .env that aren't already set. An empty value counts as set, which
-// test/cli.ts relies on. Not process.loadEnvFile: Deno's version overrides existing values.
-function loadDotEnv(path: string) {
-  let contents: string
-  try {
-    contents = readFileSync(path, 'utf8')
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return
-    throw e
-  }
-  for (const [key, value] of Object.entries(parseEnv(contents))) process.env[key] ??= value
+// Fills in only variables that aren't already set. An empty value counts as set, which
+// test/cli.ts relies on.
+try {
+  process.loadEnvFile(`${import.meta.dirname}/.env`)
+} catch (e) {
+  if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
 }
 
 function requireToken(): string {

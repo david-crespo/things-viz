@@ -2,7 +2,7 @@
 // fixture column must exist in the real schema with the same SQLite type affinity.
 // Reads schema metadata only, never task rows.
 //
-//   deno task verify:real-schema
+//   npm run verify:real-schema
 
 import process from 'node:process'
 import { DatabaseSync } from 'node:sqlite'
