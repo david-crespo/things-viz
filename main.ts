@@ -1,16 +1,16 @@
 #!/usr/bin/env deno run --allow-net=0.0.0.0:8000 --allow-env=THINGSDB,HOME,THINGS_TOKEN --allow-read --allow-run=open,osascript
 
 import { execFile, spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import process from 'node:process'
 import { text } from 'node:stream/consumers'
+import { parseEnv } from 'node:util'
 import { z } from 'zod'
 import memoize from 'memoize'
 import { match } from 'ts-pattern'
 import { Command, ValidationError } from '@cliffy/command'
 import { Table } from '@cliffy/table'
-
-import { load as loadEnv } from '@std/dotenv'
 
 import {
   type CountRow,
@@ -36,7 +36,20 @@ const dbPath = memoize(findDatabasePath)
 
 if (!import.meta.main) process.exit()
 
-await loadEnv({ envPath: `${import.meta.dirname}/.env`, export: true })
+loadDotEnv(`${import.meta.dirname}/.env`)
+
+// Fill in variables from .env that aren't already set. An empty value counts as set, which
+// test/cli.ts relies on. Not process.loadEnvFile: Deno's version overrides existing values.
+function loadDotEnv(path: string) {
+  let contents: string
+  try {
+    contents = readFileSync(path, 'utf8')
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return
+    throw e
+  }
+  for (const [key, value] of Object.entries(parseEnv(contents))) process.env[key] ??= value
+}
 
 function requireToken(): string {
   const token = process.env.THINGS_TOKEN

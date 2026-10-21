@@ -1,6 +1,7 @@
+import { existsSync } from 'node:fs'
+import { readdir } from 'node:fs/promises'
 import process from 'node:process'
 import { DatabaseSync } from 'node:sqlite'
-import { expandGlob } from '@std/fs/expand-glob'
 import dayjs from 'dayjs'
 import memoize from 'memoize'
 import { z } from 'zod'
@@ -74,14 +75,16 @@ export async function findDatabasePath(): Promise<string> {
   const envPath = process.env.THINGSDB
   if (envPath) return envPath
 
-  const pattern =
-    '~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-*/Things Database.thingsdatabase/main.sqlite'.replace(
-      '~',
-      process.env.HOME || '',
-    )
-
-  for await (const entry of expandGlob(pattern)) {
-    return entry.path
+  const container = `${process.env.HOME ?? ''}/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac`
+  let entries: string[] = []
+  try {
+    entries = await readdir(container)
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
+  }
+  for (const entry of entries.filter((name) => name.startsWith('ThingsData-'))) {
+    const path = `${container}/${entry}/Things Database.thingsdatabase/main.sqlite`
+    if (existsSync(path)) return path
   }
   throw new Error('Things database not found')
 }

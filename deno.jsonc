@@ -8,8 +8,6 @@
     "verify:real-schema": "deno run --allow-env=THINGSDB,HOME --allow-read --allow-write=test/.tmp tools/verify-fixture-schema.ts",
   },
   "imports": {
-    "@std/dotenv": "jsr:@std/dotenv@^0.225.6",
-    "@std/fs": "jsr:@std/fs@^1.0.8",
     "zod": "npm:zod@^4.1.12",
     "dayjs": "npm:dayjs@^1.11.18",
     "memoize": "npm:memoize@^10.1.0",
