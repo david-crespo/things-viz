@@ -220,11 +220,20 @@ const TODO_BASE_WHERE = `
   AND (t.heading IS NULL OR h.trashed = 0)
   AND (h.project IS NULL OR hp.trashed = 0)`
 
+// node:sqlite opens files without consulting Node's permission model, so a process run with
+// --permission and a narrow --allow-fs-read could still open any database. Check it here.
+function openDatabase(path: string) {
+  if (process.permission && !process.permission.has('fs.read', path)) {
+    throw new Error(`Read access denied: ${path}`)
+  }
+  return new DatabaseSync(path, { readOnly: true })
+}
+
 class Things {
   private db: DatabaseSync
 
   constructor(dbPath: string) {
-    this.db = new DatabaseSync(dbPath, { readOnly: true })
+    this.db = openDatabase(dbPath)
   }
 
   [Symbol.dispose]() {
