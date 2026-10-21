@@ -31,8 +31,6 @@ import { plotSeries, renderPlotHtml } from './plot.ts'
 // Found on first use, so commands that never read the database work without one
 const dbPath = memoize(findDatabasePath)
 
-if (!import.meta.main) process.exit()
-
 // Fills in only variables that aren't already set. An empty value counts as set, which
 // test/cli.ts relies on.
 try {
