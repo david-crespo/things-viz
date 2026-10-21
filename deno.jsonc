@@ -11,12 +11,4 @@
     "fmt": "deno run --allow-all npm:oxfmt@0.74.0",
     "verify:real-schema": "deno run --allow-env=THINGSDB,HOME --allow-read --allow-write=test/.tmp tools/verify-fixture-schema.ts",
   },
-  "imports": {
-    "zod": "npm:zod@^4.1.12",
-    "dayjs": "npm:dayjs@^1.11.18",
-    "memoize": "npm:memoize@^10.1.0",
-    "commander": "npm:commander@^15.0.0",
-    "@commander-js/extra-typings": "npm:@commander-js/extra-typings@^15.0.0",
-    "ts-pattern": "npm:ts-pattern@^5.9.0",
-  },
 }
