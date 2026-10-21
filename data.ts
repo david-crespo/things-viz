@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { DatabaseSync } from 'node:sqlite'
 import { expandGlob } from '@std/fs/expand-glob'
 import dayjs from 'dayjs'
@@ -70,13 +71,13 @@ const anyItemSchema = z.union([todoSchema, projectSchema, areaSchema, headingSch
 
 // Database path discovery
 export async function findDatabasePath(): Promise<string> {
-  const envPath = Deno.env.get('THINGSDB')
+  const envPath = process.env.THINGSDB
   if (envPath) return envPath
 
   const pattern =
     '~/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-*/Things Database.thingsdatabase/main.sqlite'.replace(
       '~',
-      Deno.env.get('HOME') || '',
+      process.env.HOME || '',
     )
 
   for await (const entry of expandGlob(pattern)) {

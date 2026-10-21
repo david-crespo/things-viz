@@ -1,5 +1,7 @@
 #!/usr/bin/env deno run --allow-net=0.0.0.0:8000 --allow-env=THINGSDB,HOME,THINGS_TOKEN --allow-read --allow-run=open,osascript
 
+import process from 'node:process'
+import { text } from 'node:stream/consumers'
 import { z } from 'zod'
 import memoize from 'memoize'
 import { match } from 'ts-pattern'
@@ -30,22 +32,22 @@ import plotTemplate from './plot.html' with { type: 'text' }
 // Found on first use, so commands that never read the database work without one
 const dbPath = memoize(findDatabasePath)
 
-if (!import.meta.main) Deno.exit()
+if (!import.meta.main) process.exit()
 
 await loadEnv({ envPath: `${import.meta.dirname}/.env`, export: true })
 
 function requireToken(): string {
-  const token = Deno.env.get('THINGS_TOKEN')
+  const token = process.env.THINGS_TOKEN
   if (!token) {
     console.error('THINGS_TOKEN required. Set it in env or .env file.')
-    Deno.exit(1)
+    process.exit(1)
   }
   return token
 }
 
 async function readStdin(): Promise<string | undefined> {
-  if (Deno.stdin.isTerminal()) return undefined
-  const buf = await new Response(Deno.stdin.readable).text()
+  if (process.stdin.isTTY) return undefined
+  const buf = await text(process.stdin)
   return buf.trimEnd()
 }
 
@@ -64,7 +66,7 @@ async function openThingsUrl(action: string, params: Record<string, string>) {
   const { code } = await new Deno.Command('open', { args: [urlStr] }).output()
   if (code !== 0) {
     console.error(`Failed to open URL (exit code ${code})`)
-    Deno.exit(1)
+    process.exit(1)
   }
 }
 
@@ -550,7 +552,7 @@ await new Command()
         const item = getItemByUuid(uuid, { dbPath: await dbPath() })
         if (!item) {
           console.error(`Item not found: ${uuid}`)
-          Deno.exit(1)
+          process.exit(1)
         }
         const url = `things:///show?id=${uuid}`
         console.log(`\x1b]8;;${url}\x1b\\\x1b[34m${item.title}\x1b[0m\x1b]8;;\x1b\\`)
@@ -566,7 +568,7 @@ await new Command()
         const item = getItemByUuid(uuid, { dbPath: await dbPath() })
         if (!item) {
           console.error(`Item not found: ${uuid}`)
-          Deno.exit(1)
+          process.exit(1)
         }
         await match(item)
           .with({ type: 'to-do' }, async () => {
@@ -681,7 +683,7 @@ await new Command()
         const item = getItemByUuid(uuid, { dbPath: await dbPath() })
         if (!item) {
           console.error(`Item not found: ${uuid}`)
-          Deno.exit(1)
+          process.exit(1)
         }
         // Open items resolve by bare id; completed and canceled ones only resolve
         // when scoped to the Logbook list.
@@ -690,11 +692,11 @@ await new Command()
         const target = match(item)
           .with({ type: 'area' }, () => {
             console.error('Refusing to delete an area')
-            return Deno.exit(1)
+            return process.exit(1)
           })
           .with({ type: 'heading' }, () => {
             console.error('Refusing to delete a heading')
-            return Deno.exit(1)
+            return process.exit(1)
           })
           .with({ type: 'project' }, ({ status }) => `project id "${uuid}"${scope(status)}`)
           .with({ type: 'to-do' }, ({ status }) => `to do id "${uuid}"${scope(status)}`)
@@ -707,7 +709,7 @@ await new Command()
         if (code !== 0) {
           console.error(new TextDecoder().decode(stderr).trimEnd())
           console.error(`Failed to delete (exit code ${code})`)
-          Deno.exit(1)
+          process.exit(1)
         }
         console.log(`Deleted: ${item.title}`)
       }),
@@ -764,17 +766,17 @@ await new Command()
           const item = getItemByUuid(uuid, { dbPath: await dbPath() })
           if (!item) {
             console.error(`Item not found: ${uuid}`)
-            Deno.exit(1)
+            process.exit(1)
           }
           // The URL scheme can only update to-dos and projects
           const action = match(item)
             .with({ type: 'area' }, () => {
               console.error('Refusing to update an area')
-              return Deno.exit(1)
+              return process.exit(1)
             })
             .with({ type: 'heading' }, () => {
               console.error('Refusing to update a heading')
-              return Deno.exit(1)
+              return process.exit(1)
             })
             .with({ type: 'project' }, () => 'update-project')
             .with({ type: 'to-do' }, () => 'update')
@@ -808,4 +810,4 @@ await new Command()
         },
       ),
   )
-  .parse(handleEmptyOptionValues(Deno.args))
+  .parse(handleEmptyOptionValues(process.argv.slice(2)))
